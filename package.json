@@ -5,11 +5,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cf": "npx opennextjs-cloudflare build",
+    "preview": "npx wrangler dev",
+    "deploy": "npx opennextjs-cloudflare deploy",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
+    "@opennextjs/cloudflare": "^1.17.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.98.0",
     "cheerio": "^1.2.0",

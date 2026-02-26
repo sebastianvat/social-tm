@@ -1,0 +1,8 @@
+{
+  "name": "social-tm",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-12-01",
+  "assets": {
+    "binding": "ASSETS"
+  }
+}

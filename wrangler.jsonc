@@ -2,7 +2,14 @@
   "name": "social-tm",
   "compatibility_flags": ["nodejs_compat"],
   "compatibility_date": "2025-12-01",
+  "main": ".open-next/worker.js",
   "assets": {
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://zgmtbkzwzsypowokswfj.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnbXRia3p3enN5cG93b2tzd2ZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDgzMjcsImV4cCI6MjA4NzcyNDMyN30.cyeISkXarZ48AMokZAwhJX0JqKZ9wBAtzRT-X-R_lFg",
+    "NEXT_PUBLIC_APP_URL": "https://social.transilvaniamarketing.ro"
   }
 }

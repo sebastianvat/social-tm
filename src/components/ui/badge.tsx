@@ -13,7 +13,7 @@ const badgeVariants = cva(
         outline: "text-zinc-900 dark:text-zinc-100",
         success: "border-transparent bg-emerald-500 text-white",
         warning: "border-transparent bg-amber-500 text-white",
-        token: "border-transparent bg-gradient-to-r from-violet-500 to-indigo-500 text-white",
+        token: "border-transparent bg-gradient-to-r from-emerald-500 to-cyan-500 text-white",
       },
     },
     defaultVariants: {

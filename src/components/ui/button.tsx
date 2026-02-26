@@ -13,7 +13,7 @@ const buttonVariants = cva(
         secondary: "bg-zinc-100 text-zinc-900 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100",
         ghost: "hover:bg-zinc-100 dark:hover:bg-zinc-800",
         link: "text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-100",
-        gradient: "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700",
+        gradient: "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-600 hover:to-cyan-600",
       },
       size: {
         default: "h-10 px-4 py-2",

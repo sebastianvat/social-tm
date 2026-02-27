@@ -65,23 +65,46 @@ export async function POST(request: NextRequest) {
 
     if (brandError) throw brandError
 
-    // Extract products (common e-commerce patterns)
+    function getImgSrc($img: ReturnType<typeof $>): string | null {
+      return $img.attr("src") || $img.attr("data-src") || $img.attr("data-srcset")?.split(",")[0]?.trim()?.split(" ")[0] || $img.attr("srcset")?.split(",")[0]?.trim()?.split(" ")[0] || $img.attr("data-lazy-src") || $img.attr("data-original") || null
+    }
+
+    function cleanPrice(raw: string | null): string | null {
+      if (!raw) return null
+      const match = raw.match(/[\d.,]+\s*(lei|ron|eur|€|\$|usd)/i)
+      return match ? match[0].trim() : null
+    }
+
     const products: Array<{ name: string; description: string | null; price: string | null; image_url: string | null; url: string | null }> = []
 
     // Try structured data first (JSON-LD)
     $('script[type="application/ld+json"]').each((_, el) => {
       try {
-        const data = JSON.parse($(el).html() || "")
-        const items = Array.isArray(data) ? data : [data]
+        const raw = JSON.parse($(el).html() || "")
+        const items = Array.isArray(raw) ? raw : raw["@graph"] ? raw["@graph"] : [raw]
         for (const item of items) {
           if (item["@type"] === "Product" || item["@type"] === "ItemPage") {
             products.push({
               name: item.name || "",
               description: item.description || null,
-              price: item.offers?.price?.toString() || null,
-              image_url: typeof item.image === "string" ? item.image : item.image?.[0] || null,
+              price: item.offers?.price?.toString() || item.offers?.lowPrice?.toString() || null,
+              image_url: typeof item.image === "string" ? item.image : Array.isArray(item.image) ? item.image[0] : item.image?.url || null,
               url: item.url || null,
             })
+          }
+          if (item["@type"] === "ItemList" && item.itemListElement) {
+            for (const li of item.itemListElement) {
+              const p = li.item || li
+              if (p.name) {
+                products.push({
+                  name: p.name,
+                  description: p.description || null,
+                  price: p.offers?.price?.toString() || null,
+                  image_url: typeof p.image === "string" ? p.image : Array.isArray(p.image) ? p.image[0] : p.image?.url || null,
+                  url: p.url || null,
+                })
+              }
+            }
           }
         }
       } catch {}
@@ -93,23 +116,48 @@ export async function POST(request: NextRequest) {
         ".product", ".product-card", ".product-item",
         "[data-product]", ".wc-block-grid__product",
         ".card-product", ".item-product",
+        ".grid-product", ".product-grid-item",
+        ".collection-product", "product-card",
+        ".card--product", ".productCard",
       ]
 
       for (const selector of selectors) {
         $(selector).each((_, el) => {
           const $el = $(el)
-          const name = $el.find("h2, h3, .product-title, .product-name, .card-title").first().text().trim()
-          if (name) {
+          const name = $el.find("h2, h3, h4, .product-title, .product-name, .card-title, .product__title, [class*='title']").first().text().trim()
+          if (name && name.length > 2) {
+            const $img = $el.find("img").first()
             products.push({
               name,
               description: $el.find(".description, .product-description, p").first().text().trim() || null,
-              price: $el.find(".price, .product-price, .amount").first().text().trim() || null,
-              image_url: $el.find("img").first().attr("src") || null,
+              price: cleanPrice($el.find(".price, .product-price, .amount, .money, [class*='price']").first().text()),
+              image_url: getImgSrc($img),
               url: $el.find("a").first().attr("href") || null,
             })
           }
         })
         if (products.length > 0) break
+      }
+    }
+
+    // Shopify-specific: try product JSON from page
+    if (products.length === 0) {
+      const shopifyJson = $('script:contains("var meta")').html() || $('script:contains("Shopify.theme")').html()
+      if (shopifyJson) {
+        $(".grid__item, .collection-product-card, .product-card-wrapper").each((_, el) => {
+          const $el = $(el)
+          const name = $el.find("a, h3, h2, .card-information__text").first().text().trim()
+          const $img = $el.find("img").first()
+          if (name && name.length > 2) {
+            products.push({
+              name,
+              description: null,
+              price: cleanPrice($el.find(".price, .money, .price-item, [class*='price']").first().text()),
+              image_url: getImgSrc($img),
+              url: $el.find("a").first().attr("href") || null,
+            })
+          }
+        })
       }
     }
 
@@ -119,23 +167,41 @@ export async function POST(request: NextRequest) {
         const name = $(el).text().trim()
         if (name && name.length > 3 && name.length < 100) {
           const nextP = $(el).next("p").text().trim()
+          const $parent = $(el).parent()
+          const $img = $parent.find("img").first()
           products.push({
             name,
             description: nextP || null,
             price: null,
-            image_url: $(el).parent().find("img").first().attr("src") || null,
+            image_url: getImgSrc($img),
             url: null,
           })
         }
       })
     }
 
-    // Limit and resolve image URLs
-    const limitedProducts = products.slice(0, 50).map(p => ({
-      ...p,
-      image_url: p.image_url ? new URL(p.image_url, url).href : null,
-      url: p.url ? new URL(p.url, url).href : null,
-    }))
+    // Deduplicate by name
+    const seen = new Set<string>()
+    const uniqueProducts = products.filter(p => {
+      const key = p.name.toLowerCase().trim()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+    // Limit and resolve URLs
+    const limitedProducts = uniqueProducts.slice(0, 50).map(p => {
+      let imgUrl = p.image_url
+      if (imgUrl) {
+        if (imgUrl.startsWith("//")) imgUrl = "https:" + imgUrl
+        try { imgUrl = new URL(imgUrl, url).href } catch { imgUrl = null }
+      }
+      let prodUrl = p.url
+      if (prodUrl) {
+        try { prodUrl = new URL(prodUrl, url).href } catch { prodUrl = null }
+      }
+      return { ...p, image_url: imgUrl, url: prodUrl, price: p.price || cleanPrice(p.price) }
+    })
 
     // Save products
     if (limitedProducts.length > 0) {

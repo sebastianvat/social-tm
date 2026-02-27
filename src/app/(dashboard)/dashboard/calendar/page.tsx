@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import Link from "next/link"
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Sparkles } from "lucide-react"
 
@@ -55,13 +56,30 @@ export default async function CalendarPage({
   const startOfMonth = new Date(currentYear, currentMonth - 1, 1).toISOString()
   const endOfMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59).toISOString()
 
-  const { data: posts } = await supabase
+  // Read selected brand from cookie
+  const cookieStore = await cookies()
+  const selectedBrandId = cookieStore.get("selected_brand")?.value || null
+
+  let postsQuery = supabase
     .from("posts")
     .select("*, brands(name)")
     .eq("user_id", user.id)
     .gte("scheduled_at", startOfMonth)
     .lte("scheduled_at", endOfMonth)
     .order("scheduled_at", { ascending: true })
+
+  if (selectedBrandId) {
+    postsQuery = postsQuery.eq("brand_id", selectedBrandId)
+  }
+
+  const { data: posts } = await postsQuery
+
+  // Get brand info for header
+  let brandName: string | null = null
+  if (selectedBrandId) {
+    const { data: brand } = await supabase.from("brands").select("name").eq("id", selectedBrandId).single()
+    brandName = brand?.name || null
+  }
 
   const postsByDay: Record<number, typeof posts> = {}
   posts?.forEach((post) => {
@@ -79,10 +97,7 @@ export default async function CalendarPage({
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
   const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear
 
-  const { data: brands } = await supabase
-    .from("brands")
-    .select("id, name")
-    .eq("user_id", user.id)
+  const totalPosts = posts?.length || 0
 
   return (
     <div>
@@ -92,11 +107,18 @@ export default async function CalendarPage({
             <CalendarIcon className="h-3.5 w-3.5" />
             Astazi: {today} {MONTHS[todayMonth - 1]} {todayYear}
           </div>
-          <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Calendar</h1>
+          <h1 className="mt-1 text-2xl font-semibold text-zinc-900">
+            Calendar{brandName ? ` — ${brandName}` : ""}
+          </h1>
+          {totalPosts > 0 && (
+            <p className="mt-0.5 text-[13px] text-zinc-400">
+              {totalPosts} postari in {MONTHS[currentMonth - 1]}
+            </p>
+          )}
         </div>
-        {brands && brands.length > 0 && (
+        {selectedBrandId && (
           <Link
-            href={`/dashboard/brands/${brands[0].id}`}
+            href={`/dashboard/brands/${selectedBrandId}/generate`}
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-900 px-4 text-[13px] font-medium text-white hover:bg-zinc-800"
           >
             <Sparkles className="h-3.5 w-3.5" />
@@ -113,7 +135,11 @@ export default async function CalendarPage({
           </h2>
           <div className="mt-3 space-y-2">
             {todayPosts.map((post) => (
-              <div key={post.id} className="flex items-center justify-between rounded-lg bg-white border border-zinc-100 p-3">
+              <Link
+                key={post.id}
+                href="/dashboard/posts"
+                className="flex items-center justify-between rounded-lg bg-white border border-zinc-100 p-3 transition-colors hover:border-zinc-200"
+              >
                 <div className="flex items-center gap-3">
                   <div className={`h-2 w-2 rounded-full ${POST_TYPE_COLORS[post.post_type] || "bg-zinc-400"}`} />
                   <div>
@@ -128,7 +154,7 @@ export default async function CalendarPage({
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_LABELS[post.status]?.class || "bg-zinc-100 text-zinc-600"}`}>
                   {STATUS_LABELS[post.status]?.label || post.status}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -136,7 +162,9 @@ export default async function CalendarPage({
 
       {isCurrentMonth && todayPosts.length === 0 && (
         <div className="mb-8 rounded-xl border border-zinc-200 bg-zinc-50 p-5 text-center">
-          <p className="text-sm text-zinc-500">Nicio postare programata astazi.</p>
+          <p className="text-sm text-zinc-500">
+            Nicio postare programata astazi{brandName ? ` pentru ${brandName}` : ""}.
+          </p>
         </div>
       )}
 

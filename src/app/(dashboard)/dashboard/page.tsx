@@ -1,12 +1,16 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import Link from "next/link"
-import { Globe, Calendar, Sparkles, Send, ArrowRight, Coins, BarChart3 } from "lucide-react"
+import { Globe, Calendar, Sparkles, Send, ArrowRight, Coins, FileText } from "lucide-react"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
+
+  const cookieStore = await cookies()
+  const selectedBrandId = cookieStore.get("selected_brand")?.value || null
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -19,18 +23,48 @@ export default async function DashboardPage() {
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id)
 
-  const { count: postCount } = await supabase
+  let postQuery = supabase
     .from("posts")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id)
+  if (selectedBrandId) postQuery = postQuery.eq("brand_id", selectedBrandId)
+  const { count: postCount } = await postQuery
 
-  const { count: publishedCount } = await supabase
+  let publishedQuery = supabase
     .from("posts")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id)
     .eq("status", "published")
+  if (selectedBrandId) publishedQuery = publishedQuery.eq("brand_id", selectedBrandId)
+  const { count: publishedCount } = await publishedQuery
+
+  let scheduledQuery = supabase
+    .from("posts")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "scheduled")
+  if (selectedBrandId) scheduledQuery = scheduledQuery.eq("brand_id", selectedBrandId)
+  const { count: scheduledCount } = await scheduledQuery
+
+  let draftQuery = supabase
+    .from("posts")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "draft")
+  if (selectedBrandId) draftQuery = draftQuery.eq("brand_id", selectedBrandId)
+  const { count: draftCount } = await draftQuery
+
+  let brandName: string | null = null
+  if (selectedBrandId) {
+    const { data: brand } = await supabase.from("brands").select("name").eq("id", selectedBrandId).single()
+    brandName = brand?.name || null
+  }
 
   const firstName = profile?.full_name?.split(" ")[0] || "acolo"
+
+  const generateHref = selectedBrandId
+    ? `/dashboard/brands/${selectedBrandId}/generate`
+    : "/dashboard/brands/new"
 
   return (
     <div className="max-w-3xl">
@@ -40,11 +74,11 @@ export default async function DashboardPage() {
           Buna, {firstName}
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Ce vrei sa faci astazi?
+          {brandName ? `Lucrezi pe ${brandName}` : "Ce vrei sa faci astazi?"}
         </p>
       </div>
 
-      {/* Quick actions — like ElevenLabs "Get started with" */}
+      {/* Quick actions */}
       <div className="mb-12">
         <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
           Start rapid
@@ -59,18 +93,18 @@ export default async function DashboardPage() {
               tokens: "10 tokeni",
             },
             {
-              href: "/dashboard/calendar",
+              href: generateHref,
               icon: Calendar,
               title: "Genereaza calendar",
-              desc: "30 postari cu text si imagini AI",
+              desc: brandName ? `Calendar nou pentru ${brandName}` : "30 postari cu text si imagini AI",
               tokens: "50 tokeni",
             },
             {
-              href: "/dashboard/posting",
-              icon: Send,
-              title: "Auto-posting",
-              desc: "Conecteaza si publica pe social media",
-              tokens: "2 tokeni/post",
+              href: "/dashboard/posts",
+              icon: FileText,
+              title: "Gestioneaza postari",
+              desc: brandName ? `Vezi postarile ${brandName}` : "Editeaza si programeaza postari",
+              tokens: "",
             },
             {
               href: "/dashboard/tokens",
@@ -81,7 +115,7 @@ export default async function DashboardPage() {
             },
           ].map((action) => (
             <Link
-              key={action.href}
+              key={action.title}
               href={action.href}
               className="group flex items-start gap-3 rounded-xl border border-zinc-200 p-4 transition-all hover:border-zinc-300 hover:shadow-sm"
             >
@@ -106,13 +140,14 @@ export default async function DashboardPage() {
       {/* Stats */}
       <div>
         <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
-          Statistici
+          Statistici{brandName ? ` — ${brandName}` : ""}
         </p>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           {[
             { label: "Tokeni", value: profile?.tokens ?? 0 },
             { label: "Branduri", value: brandCount ?? 0 },
             { label: "Postari", value: postCount ?? 0 },
+            { label: "Programate", value: scheduledCount ?? 0 },
             { label: "Publicate", value: publishedCount ?? 0 },
           ].map((stat) => (
             <div key={stat.label} className="rounded-xl border border-zinc-200 p-4">
@@ -121,6 +156,16 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+        {draftCount && draftCount > 0 ? (
+          <div className="mt-3 rounded-lg bg-amber-50 px-4 py-2.5">
+            <p className="text-[13px] text-amber-700">
+              Ai <span className="font-semibold">{draftCount} postari draft</span> care asteapta revizuirea.{" "}
+              <Link href="/dashboard/posts" className="underline hover:no-underline">
+                Vezi postarile
+              </Link>
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   )

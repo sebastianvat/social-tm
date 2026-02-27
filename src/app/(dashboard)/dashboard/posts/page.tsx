@@ -21,6 +21,7 @@ import {
   Hash,
   Eye,
 } from "lucide-react"
+import { useBrand } from "@/components/brand-provider"
 
 interface Post {
   id: string
@@ -79,6 +80,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export default function PostsPage() {
+  const { selectedBrandId, selectedBrand } = useBrand()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -91,14 +93,13 @@ export default function PostsPage() {
   // Filters
   const [filterStatus, setFilterStatus] = useState("")
   const [filterPlatform, setFilterPlatform] = useState("")
-  const [filterBrand, setFilterBrand] = useState("")
 
   const fetchPosts = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (filterStatus) params.set("status", filterStatus)
     if (filterPlatform) params.set("platform", filterPlatform)
-    if (filterBrand) params.set("brandId", filterBrand)
+    if (selectedBrandId) params.set("brandId", selectedBrandId)
 
     const res = await fetch(`/api/posts?${params.toString()}`)
     if (res.ok) {
@@ -106,7 +107,7 @@ export default function PostsPage() {
       setPosts(data.posts || [])
     }
     setLoading(false)
-  }, [filterStatus, filterPlatform, filterBrand])
+  }, [filterStatus, filterPlatform, selectedBrandId])
 
   useEffect(() => {
     fetchPosts()
@@ -120,14 +121,6 @@ export default function PostsPage() {
           p.brands?.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : posts
-
-  const brands = Array.from(
-    new Map(
-      posts
-        .filter((p) => p.brands)
-        .map((p) => [p.brand_id, { id: p.brand_id, name: p.brands!.name }])
-    ).values()
-  )
 
   function startEdit(post: Post) {
     setEditingId(post.id)
@@ -189,9 +182,11 @@ export default function PostsPage() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-zinc-900">Postari</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">
+          Postari{selectedBrand ? ` — ${selectedBrand.name}` : ""}
+        </h1>
         <p className="mt-1 text-[14px] text-zinc-500">
-          Gestioneaza, editeaza si programeaza toate postarile tale
+          Gestioneaza, editeaza si programeaza toate postarile
         </p>
       </div>
 
@@ -254,20 +249,6 @@ export default function PostsPage() {
             <option value="linkedin">LinkedIn</option>
             <option value="tiktok">TikTok</option>
           </select>
-          {brands.length > 1 && (
-            <select
-              value={filterBrand}
-              onChange={(e) => setFilterBrand(e.target.value)}
-              className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] text-zinc-700 focus:border-zinc-400 focus:outline-none"
-            >
-              <option value="">Toate brandurile</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
       </div>
 

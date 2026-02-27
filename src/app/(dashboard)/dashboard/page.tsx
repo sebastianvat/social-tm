@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Globe, Calendar, Coins, ArrowRight, Zap, Plus, TrendingUp } from "lucide-react"
+import { Globe, Calendar, Sparkles, Send, ArrowRight, Coins, BarChart3 } from "lucide-react"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -30,66 +30,96 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .eq("status", "published")
 
+  const firstName = profile?.full_name?.split(" ")[0] || "acolo"
+
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-          Buna, {profile?.full_name || "acolo"}!
+    <div className="max-w-3xl">
+      {/* Greeting */}
+      <div className="mb-12">
+        <h1 className="text-2xl font-semibold text-zinc-900">
+          Buna, {firstName}
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">Uite ce se intampla cu conturile tale.</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          Ce vrei sa faci astazi?
+        </p>
+      </div>
+
+      {/* Quick actions — like ElevenLabs "Get started with" */}
+      <div className="mb-12">
+        <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+          Start rapid
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            {
+              href: "/dashboard/brands/new",
+              icon: Globe,
+              title: "Scaneaza website",
+              desc: "Extrage produse si creeaza un brand",
+              tokens: "10 tokeni",
+            },
+            {
+              href: "/dashboard/calendar",
+              icon: Calendar,
+              title: "Genereaza calendar",
+              desc: "30 postari cu text si imagini AI",
+              tokens: "50 tokeni",
+            },
+            {
+              href: "/dashboard/posting",
+              icon: Send,
+              title: "Auto-posting",
+              desc: "Conecteaza si publica pe social media",
+              tokens: "2 tokeni/post",
+            },
+            {
+              href: "/dashboard/tokens",
+              icon: Coins,
+              title: "Cumpara tokeni",
+              desc: "Alege pachetul potrivit",
+              tokens: "",
+            },
+          ].map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="group flex items-start gap-3 rounded-xl border border-zinc-200 p-4 transition-all hover:border-zinc-300 hover:shadow-sm"
+            >
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-zinc-100 transition-colors group-hover:bg-zinc-900 group-hover:text-white">
+                <action.icon className="h-4 w-4 text-zinc-500 group-hover:text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-zinc-900">{action.title}</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-500" />
+                </div>
+                <span className="mt-0.5 block text-xs text-zinc-500">{action.desc}</span>
+                {action.tokens && (
+                  <span className="mt-1.5 inline-block text-[11px] text-zinc-400">{action.tokens}</span>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Tokeni", value: profile?.tokens ?? 0, icon: Coins, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-950" },
-          { label: "Branduri", value: brandCount ?? 0, icon: Globe, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950" },
-          { label: "Postari", value: postCount ?? 0, icon: Calendar, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950" },
-          { label: "Publicate", value: publishedCount ?? 0, icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950" },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-zinc-500">{stat.label}</span>
-              <div className={`rounded-lg p-2 ${stat.bg}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
+      <div>
+        <p className="mb-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+          Statistici
+        </p>
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: "Tokeni", value: profile?.tokens ?? 0 },
+            { label: "Branduri", value: brandCount ?? 0 },
+            { label: "Postari", value: postCount ?? 0 },
+            { label: "Publicate", value: publishedCount ?? 0 },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-zinc-200 p-4">
+              <p className="text-[11px] font-medium text-zinc-400">{stat.label}</p>
+              <p className="mt-1 text-xl font-semibold text-zinc-900">{stat.value}</p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{stat.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">Start rapid</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Link
-            href="/dashboard/brands/new"
-            className="group flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-5 transition-colors hover:border-violet-300 hover:bg-violet-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-violet-800 dark:hover:bg-violet-950"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500">
-              <Plus className="h-6 w-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-zinc-900 dark:text-white">Adauga brand nou</h3>
-              <p className="text-sm text-zinc-500">Scaneaza website-ul si extrage produsele</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-zinc-400 transition-transform group-hover:translate-x-1" />
-          </Link>
-
-          <Link
-            href="/dashboard/tokens"
-            className="group flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-5 transition-colors hover:border-violet-300 hover:bg-violet-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-violet-800 dark:hover:bg-violet-950"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500">
-              <Coins className="h-6 w-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-zinc-900 dark:text-white">Cumpara tokeni</h3>
-              <p className="text-sm text-zinc-500">Alege pachetul potrivit pentru tine</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-zinc-400 transition-transform group-hover:translate-x-1" />
-          </Link>
+          ))}
         </div>
       </div>
     </div>

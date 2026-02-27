@@ -19,10 +19,10 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-white">
       <Sidebar tokens={profile?.tokens ?? 0} />
-      <main className="flex-1 overflow-y-auto bg-zinc-50 dark:bg-zinc-950">
-        <div className="mx-auto max-w-5xl px-6 py-8">
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-4xl px-8 py-10">
           {children}
         </div>
       </main>

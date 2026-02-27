@@ -10,6 +10,5 @@ export function formatNumber(num: number): string {
 }
 
 export function formatTokens(tokens: number): string {
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`
-  return tokens.toString()
+  return new Intl.NumberFormat('ro-RO').format(tokens)
 }

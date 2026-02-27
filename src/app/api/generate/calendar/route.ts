@@ -108,7 +108,7 @@ Fiecare obiect: day, content, hashtags, post_type, platform, image_prompt, best_
 RASPUNDE DOAR CU JSON ARRAY. Fara text, fara markdown, fara explicatii.`
 
     const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-opus-4-20250514",
       max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }],

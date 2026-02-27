@@ -19,10 +19,15 @@ export default function NewBrandPage() {
     setStatus("Se scaneaza website-ul...")
 
     try {
+      let finalUrl = url.trim()
+      if (!finalUrl.match(/^https?:\/\//i)) {
+        finalUrl = "https://" + finalUrl
+      }
+
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: finalUrl }),
       })
 
       const data = await res.json()
@@ -56,7 +61,7 @@ export default function NewBrandPage() {
           </label>
           <input
             id="url"
-            type="url"
+            type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="flex h-11 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"

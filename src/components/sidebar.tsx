@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Globe,
   Calendar,
+  FileText,
   Coins,
   Settings,
   Zap,
@@ -20,6 +21,7 @@ import { formatTokens } from "@/lib/utils"
 const mainNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Branduri", href: "/dashboard/brands", icon: Globe },
+  { name: "Postari", href: "/dashboard/posts", icon: FileText },
   { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
 ]
 

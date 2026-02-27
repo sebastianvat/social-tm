@@ -8,15 +8,19 @@ export async function GET(request: NextRequest) {
 
   const calendarId = request.nextUrl.searchParams.get("calendarId")
   const brandId = request.nextUrl.searchParams.get("brandId")
+  const status = request.nextUrl.searchParams.get("status")
+  const platform = request.nextUrl.searchParams.get("platform")
 
   let query = supabase
     .from("posts")
-    .select("*")
+    .select("*, brands:brand_id(name, url)")
     .eq("user_id", user.id)
-    .order("scheduled_at", { ascending: true })
+    .order("scheduled_at", { ascending: false, nullsFirst: false })
 
   if (calendarId) query = query.eq("calendar_id", calendarId)
   if (brandId) query = query.eq("brand_id", brandId)
+  if (status) query = query.eq("status", status)
+  if (platform) query = query.eq("platform", platform)
 
   const { data: posts, error } = await query
 

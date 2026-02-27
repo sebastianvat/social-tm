@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
   const brandId = request.nextUrl.searchParams.get("brandId")
   const status = request.nextUrl.searchParams.get("status")
   const platform = request.nextUrl.searchParams.get("platform")
+  const month = request.nextUrl.searchParams.get("month")
+  const year = request.nextUrl.searchParams.get("year")
 
   let query = supabase
     .from("posts")
@@ -21,6 +23,11 @@ export async function GET(request: NextRequest) {
   if (brandId) query = query.eq("brand_id", brandId)
   if (status) query = query.eq("status", status)
   if (platform) query = query.eq("platform", platform)
+  if (month && year) {
+    const start = new Date(Number(year), Number(month) - 1, 1).toISOString()
+    const end = new Date(Number(year), Number(month), 0, 23, 59, 59).toISOString()
+    query = query.gte("scheduled_at", start).lte("scheduled_at", end)
+  }
 
   const { data: posts, error } = await query
 

@@ -43,7 +43,7 @@ type GeneratedPost = {
   selected: boolean
 }
 
-type Step = "config" | "generating" | "review"
+type Step = "config" | "choose_mode" | "generating" | "review"
 
 export default function GenerateCalendarPage() {
   const params = useParams()
@@ -64,6 +64,7 @@ export default function GenerateCalendarPage() {
   const [bulkGenerating, setBulkGenerating] = useState(false)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
+  const [existingPostCount, setExistingPostCount] = useState(0)
 
   useEffect(() => {
     if (step !== "generating") { setElapsed(0); return }
@@ -117,6 +118,24 @@ export default function GenerateCalendarPage() {
       setError("Selecteaza cel putin o platforma")
       return
     }
+    setError("")
+
+    // Check if calendar already exists for this month
+    try {
+      const checkRes = await fetch(`/api/posts?brandId=${brandId}&month=${month}&year=${year}`)
+      const checkData = await checkRes.json()
+      const count = checkData.posts?.length || 0
+      if (count > 0) {
+        setExistingPostCount(count)
+        setStep("choose_mode")
+        return
+      }
+    } catch {}
+
+    await executeGenerate("add")
+  }
+
+  async function executeGenerate(mode: "add" | "replace") {
     setStep("generating")
     setError("")
 
@@ -131,6 +150,7 @@ export default function GenerateCalendarPage() {
           postCount,
           platforms,
           selectedProductIds: Array.from(selectedProducts),
+          mode,
         }),
       })
 
@@ -316,6 +336,51 @@ export default function GenerateCalendarPage() {
 
           <button onClick={handleGenerate} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800">
             <Sparkles className="h-4 w-4" /> Genereaza {postCount} idei de postari
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // STEP: Choose mode (existing calendar found)
+  if (step === "choose_mode") {
+    return (
+      <div className="mx-auto max-w-md py-16">
+        <div className="rounded-xl border border-zinc-200 bg-white p-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+            <Calendar className="h-6 w-6 text-amber-600" />
+          </div>
+          <h2 className="text-lg font-semibold text-zinc-900">Calendar existent</h2>
+          <p className="mt-2 text-sm text-zinc-500">
+            Exista deja <span className="font-medium text-zinc-700">{existingPostCount} postari</span> generate pentru {MONTHS[month - 1]} {year}.
+          </p>
+          <p className="mt-1 text-[13px] text-zinc-400">Ce vrei sa faci?</p>
+
+          <div className="mt-6 space-y-3">
+            <button
+              onClick={() => executeGenerate("add")}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              <Sparkles className="h-4 w-4" />
+              Adauga {postCount} postari noi
+            </button>
+            <p className="text-[11px] text-zinc-400">Pastreaza postarile existente si adauga altele noi peste</p>
+
+            <button
+              onClick={() => executeGenerate("replace")}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Inlocuieste tot ({existingPostCount} postari se vor sterge)
+            </button>
+            <p className="text-[11px] text-zinc-400">Sterge toate postarile vechi si genereaza de la zero</p>
+          </div>
+
+          <button
+            onClick={() => setStep("config")}
+            className="mt-6 text-[13px] text-zinc-400 hover:text-zinc-700"
+          >
+            Inapoi la configurare
           </button>
         </div>
       </div>

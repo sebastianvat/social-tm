@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Neautorizat" }, { status: 401 })
   }
 
-  const { brandId, month, year, postCount = 30, platforms = ["facebook", "instagram"], selectedProductIds = [] } = await request.json()
+  const { brandId, month, year, postCount = 30, platforms = ["facebook", "instagram"], selectedProductIds = [], mode = "add" } = await request.json()
 
   // Check token balance
   const { data: profile } = await supabase.from("profiles").select("tokens").eq("id", user.id).single()
@@ -129,6 +129,21 @@ RASPUNDE DOAR CU JSON ARRAY. Fara text, fara markdown, fara explicatii.`
       posts = JSON.parse(jsonMatch[0])
     } catch (parseErr: any) {
       return NextResponse.json({ error: "JSON parse error: " + (parseErr?.message || "unknown").slice(0, 200) }, { status: 500 })
+    }
+
+    if (mode === "replace") {
+      const { data: existingCals } = await supabase
+        .from("content_calendars")
+        .select("id")
+        .eq("brand_id", brandId)
+        .eq("month", month)
+        .eq("year", year)
+
+      if (existingCals?.length) {
+        const calIds = existingCals.map((c) => c.id)
+        await supabase.from("posts").delete().in("calendar_id", calIds)
+        await supabase.from("content_calendars").delete().in("id", calIds)
+      }
     }
 
     // Create calendar

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("posts")
-    .select("*, brands:brand_id(name, url)")
+    .select("*, brands:brand_id(name, url), products:product_id(id, name, description, price, image_url, url)")
     .eq("user_id", user.id)
     .order("scheduled_at", { ascending: false, nullsFirst: false })
 

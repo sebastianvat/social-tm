@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Neautorizat" }, { status: 401 })
   }
 
-  const { brandId, month, year, postCount = 30, platforms = ["facebook", "instagram"] } = await request.json()
+  const { brandId, month, year, postCount = 30, platforms = ["facebook", "instagram"], selectedProductIds = [] } = await request.json()
 
   // Check token balance
   const { data: profile } = await supabase.from("profiles").select("tokens").eq("id", user.id).single()
@@ -28,9 +28,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Brand negasit" }, { status: 404 })
   }
 
-  const { data: products } = await supabase.from("products").select("*").eq("brand_id", brandId).limit(30)
+  let productsQuery = supabase.from("products").select("*").eq("brand_id", brandId)
+  if (selectedProductIds.length > 0) {
+    productsQuery = productsQuery.in("id", selectedProductIds)
+  }
+  const { data: products } = await productsQuery.limit(50)
 
   const months = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"]
+
+  const productsList = products?.map((p, i) => `[PRODUS_${i}] ${p.name}${p.description ? `: ${p.description}` : ""}${p.price ? ` (${p.price})` : ""}`).join("\n") || "Nu au fost gasite produse specifice."
 
   try {
     const prompt = `Esti un expert in social media marketing. Creeaza un calendar de continut pentru luna ${months[month - 1]} ${year}.
@@ -40,8 +46,8 @@ WEBSITE: ${brand.url}
 DESCRIERE: ${brand.description || "N/A"}
 ${brand.brand_voice ? `TONUL BRANDULUI: ${brand.brand_voice}` : ""}
 
-PRODUSE/SERVICII:
-${products?.map(p => `- ${p.name}${p.description ? `: ${p.description}` : ""}${p.price ? ` (${p.price})` : ""}`).join("\n") || "Nu au fost gasite produse specifice."}
+PRODUSE SELECTATE PENTRU PROMOVARE:
+${productsList}
 
 PLATFORME: ${platforms.join(", ")}
 
@@ -51,6 +57,8 @@ Genereaza exact ${postCount} postari distribuite uniform pe luna, cu mix de:
 - 20% Engagement (intrebari, polls, conversatie)
 - 15% Brand Story (behind the scenes, echipa, valori)
 
+IMPORTANT: Postarile promo trebuie sa promoveze produsele selectate. Distribuie postarile promo pe produsele disponibile.
+
 Pentru fiecare postare returneza un JSON object cu aceste campuri:
 - day: numarul zilei din luna (1-${new Date(year, month, 0).getDate()})
 - content: textul postarii (150-300 caractere, in romana)
@@ -59,6 +67,7 @@ Pentru fiecare postare returneza un JSON object cu aceste campuri:
 - platform: una din platformele specificate
 - image_prompt: descriere in engleza pentru generarea imaginii AI (50-100 cuvinte, descriptiv, include stil vizual)
 - best_time: ora optima de postare (format "HH:MM")
+- product_index: indexul produsului asociat (0, 1, 2, ...) sau null daca postarea nu e despre un produs specific
 
 Raspunde DOAR cu un JSON array valid. Fara explicatii, fara markdown.`
 
@@ -94,20 +103,27 @@ Raspunde DOAR cu un JSON array valid. Fara explicatii, fara markdown.`
 
     if (calError) throw calError
 
-    // Save posts
-    const postRecords = posts.map((p: any) => ({
-      calendar_id: calendar.id,
-      brand_id: brandId,
-      user_id: user.id,
-      content: p.content,
-      hashtags: p.hashtags || [],
-      image_prompt: p.image_prompt || null,
-      post_type: p.post_type || "promo",
-      platform: p.platform || platforms[0],
-      scheduled_at: new Date(year, month - 1, p.day, ...((p.best_time || "10:00").split(":").map(Number))).toISOString(),
-      status: "draft",
-      tokens_used: 0,
-    }))
+    // Save posts — link product_id based on product_index from Claude
+    const postRecords = posts.map((p: any) => {
+      let productId = null
+      if (p.product_index != null && products && products[p.product_index]) {
+        productId = products[p.product_index].id
+      }
+      return {
+        calendar_id: calendar.id,
+        brand_id: brandId,
+        user_id: user.id,
+        content: p.content,
+        hashtags: p.hashtags || [],
+        image_prompt: p.image_prompt || null,
+        post_type: p.post_type || "promo",
+        platform: p.platform || platforms[0],
+        scheduled_at: new Date(year, month - 1, p.day, ...((p.best_time || "10:00").split(":").map(Number))).toISOString(),
+        status: "draft",
+        product_id: productId,
+        tokens_used: 0,
+      }
+    })
 
     await supabase.from("posts").insert(postRecords)
 

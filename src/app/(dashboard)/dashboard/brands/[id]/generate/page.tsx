@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Sparkles, Loader2, Coins, Calendar, Check, Pencil, Trash2, Image as ImageIcon, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowLeft, Sparkles, Loader2, Coins, Calendar, Check, Trash2, Image as ImageIcon, ChevronDown, ChevronUp, Package, Wand2 } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
+import { ProductSelector } from "@/components/product-card"
 
 const MONTHS = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"]
 const PLATFORMS = [
@@ -21,6 +22,15 @@ const TYPE_LABELS: Record<string, string> = {
   brand_story: "Brand Story",
 }
 
+type Product = {
+  id: string
+  name: string
+  description: string | null
+  price: string | null
+  image_url: string | null
+  url: string | null
+}
+
 type GeneratedPost = {
   id: string
   content: string
@@ -28,11 +38,12 @@ type GeneratedPost = {
   post_type: string
   platform: string
   image_prompt: string | null
+  image_url?: string | null
   scheduled_at: string
   selected: boolean
 }
 
-type Step = "config" | "generating" | "review" | "done"
+type Step = "config" | "generating" | "review"
 
 export default function GenerateCalendarPage() {
   const params = useParams()
@@ -52,10 +63,38 @@ export default function GenerateCalendarPage() {
   const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set())
   const [bulkGenerating, setBulkGenerating] = useState(false)
 
+  // Products
+  const [products, setProducts] = useState<Product[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    async function loadProducts() {
+      setLoadingProducts(true)
+      const res = await fetch(`/api/products?brandId=${brandId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setProducts(data.products || [])
+        setSelectedProducts(new Set((data.products || []).map((p: Product) => p.id)))
+      }
+      setLoadingProducts(false)
+    }
+    loadProducts()
+  }, [brandId])
+
   function togglePlatform(id: string) {
     setPlatforms((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     )
+  }
+
+  function toggleProduct(id: string) {
+    setSelectedProducts((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   async function handleGenerate() {
@@ -70,7 +109,14 @@ export default function GenerateCalendarPage() {
       const res = await fetch("/api/generate/calendar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, month, year, postCount, platforms }),
+        body: JSON.stringify({
+          brandId,
+          month,
+          year,
+          postCount,
+          platforms,
+          selectedProductIds: Array.from(selectedProducts),
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -124,7 +170,7 @@ export default function GenerateCalendarPage() {
   }
 
   async function handleBulkGenerateImages() {
-    const postsWithPrompts = posts.filter((p) => p.image_prompt && !(p as any).image_url)
+    const postsWithPrompts = posts.filter((p) => p.image_prompt && !p.image_url)
     if (postsWithPrompts.length === 0) return
 
     setBulkGenerating(true)
@@ -134,9 +180,8 @@ export default function GenerateCalendarPage() {
     setBulkGenerating(false)
   }
 
-  const selectedPosts = posts.filter((p) => p.selected)
-  const postsWithImages = posts.filter((p) => (p as any).image_url)
-  const postsWithoutImages = posts.filter((p) => p.image_prompt && !(p as any).image_url)
+  const postsWithImages = posts.filter((p) => p.image_url)
+  const postsWithoutImages = posts.filter((p) => p.image_prompt && !p.image_url)
 
   // STEP: Config
   if (step === "config") {
@@ -147,9 +192,10 @@ export default function GenerateCalendarPage() {
         </Link>
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-zinc-900">Genereaza calendar</h1>
-          <p className="mt-1 text-sm text-zinc-500">Pasul 1: AI-ul creeaza idei de postari (fara imagini)</p>
+          <p className="mt-1 text-sm text-zinc-500">Configureaza si selecteaza produsele de inclus</p>
         </div>
         <div className="space-y-6">
+          {/* Month + Year */}
           <div className="rounded-xl border border-zinc-200 bg-white p-5">
             <p className="mb-3 text-[13px] font-medium text-zinc-900">Luna si anul</p>
             <div className="grid grid-cols-2 gap-3">
@@ -162,6 +208,7 @@ export default function GenerateCalendarPage() {
             </div>
           </div>
 
+          {/* Platforms */}
           <div className="rounded-xl border border-zinc-200 bg-white p-5">
             <p className="mb-3 text-[13px] font-medium text-zinc-900">Platforme</p>
             <div className="grid grid-cols-2 gap-2">
@@ -173,6 +220,7 @@ export default function GenerateCalendarPage() {
             </div>
           </div>
 
+          {/* Post count */}
           <div className="rounded-xl border border-zinc-200 bg-white p-5">
             <p className="mb-3 text-[13px] font-medium text-zinc-900">Numar postari</p>
             <div className="grid grid-cols-3 gap-2">
@@ -184,6 +232,52 @@ export default function GenerateCalendarPage() {
             </div>
           </div>
 
+          {/* Product selector */}
+          <div className="rounded-xl border border-zinc-200 bg-white p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-zinc-400" />
+                <p className="text-[13px] font-medium text-zinc-900">Produse de inclus</p>
+              </div>
+              {products.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (selectedProducts.size === products.length) {
+                      setSelectedProducts(new Set())
+                    } else {
+                      setSelectedProducts(new Set(products.map((p) => p.id)))
+                    }
+                  }}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-900"
+                >
+                  {selectedProducts.size === products.length ? "Deselecteaza tot" : "Selecteaza tot"}
+                </button>
+              )}
+            </div>
+
+            {loadingProducts ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+              </div>
+            ) : products.length === 0 ? (
+              <p className="py-4 text-center text-[13px] text-zinc-400">
+                Niciun produs gasit. Scaneaza website-ul brandului mai intai.
+              </p>
+            ) : (
+              <>
+                <ProductSelector
+                  products={products}
+                  selected={selectedProducts}
+                  onToggle={toggleProduct}
+                />
+                <p className="mt-3 text-[11px] text-zinc-400">
+                  {selectedProducts.size} din {products.length} produse selectate — AI-ul va crea postari focusate pe acestea
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Cost */}
           <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-5">
             <div className="flex items-center justify-between">
               <span className="text-[13px] text-zinc-500">Cost generare text</span>
@@ -241,7 +335,7 @@ export default function GenerateCalendarPage() {
             disabled={bulkGenerating || postsWithoutImages.length === 0}
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-900 px-4 text-[13px] font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
           >
-            {bulkGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+            {bulkGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
             Genereaza toate imaginile ({postsWithoutImages.length})
           </button>
           <span className="text-[11px] text-zinc-400">
@@ -254,10 +348,10 @@ export default function GenerateCalendarPage() {
         </div>
 
         <Link
-          href={`/dashboard/calendar?month=${month}&year=${year}`}
+          href={`/dashboard/posts`}
           className="mb-6 inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 px-4 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
         >
-          <Calendar className="h-3.5 w-3.5" /> Vezi in calendar
+          <Calendar className="h-3.5 w-3.5" /> Gestioneaza in Postari
         </Link>
 
         {/* Posts list */}
@@ -265,11 +359,10 @@ export default function GenerateCalendarPage() {
           {posts.map((post) => {
             const isExpanded = expandedPost === post.id
             const isGeneratingImg = generatingImages.has(post.id)
-            const hasImage = !!(post as any).image_url
+            const hasImage = !!post.image_url
 
             return (
               <div key={post.id} className="rounded-xl border border-zinc-200 bg-white">
-                {/* Header */}
                 <div
                   className="flex cursor-pointer items-center gap-3 p-4"
                   onClick={() => setExpandedPost(isExpanded ? null : post.id)}
@@ -289,14 +382,13 @@ export default function GenerateCalendarPage() {
                       <span className="text-[11px] text-zinc-400">
                         {new Date(post.scheduled_at).toLocaleDateString("ro-RO", { day: "numeric", month: "short" })}
                       </span>
-                      {hasImage && <span className="text-[10px] text-zinc-400">📷</span>}
+                      {hasImage && <ImageIcon className="h-3 w-3 text-green-500" />}
                     </div>
                     <p className="mt-1 text-[13px] text-zinc-900 line-clamp-1">{post.content}</p>
                   </div>
                   {isExpanded ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
                 </div>
 
-                {/* Expanded content */}
                 {isExpanded && (
                   <div className="border-t border-zinc-100 p-4">
                     <p className="text-sm text-zinc-700 whitespace-pre-wrap">{post.content}</p>
@@ -311,9 +403,9 @@ export default function GenerateCalendarPage() {
                       </div>
                     )}
 
-                    {(post as any).image_url && (
+                    {post.image_url && (
                       <div className="mt-3">
-                        <img src={(post as any).image_url} alt="" className="h-40 w-40 rounded-lg object-cover" />
+                        <img src={post.image_url} alt="" className="h-40 w-40 rounded-lg object-cover" />
                       </div>
                     )}
 
@@ -331,7 +423,7 @@ export default function GenerateCalendarPage() {
                           disabled={isGeneratingImg}
                           className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-[12px] font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
                         >
-                          {isGeneratingImg ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImageIcon className="h-3 w-3" />}
+                          {isGeneratingImg ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
                           Genereaza imagine ({TOKEN_COSTS.GENERATE_IMAGE} tokeni)
                         </button>
                       )}

@@ -26,6 +26,16 @@ import {
   MinusSquare,
 } from "lucide-react"
 import { useBrand } from "@/components/brand-provider"
+import { ProductCardMini } from "@/components/product-card"
+
+interface ProductInfo {
+  id: string
+  name: string
+  description: string | null
+  price: string | null
+  image_url: string | null
+  url: string | null
+}
 
 interface Post {
   id: string
@@ -41,6 +51,8 @@ interface Post {
   scheduled_at: string | null
   published_at: string | null
   status: "draft" | "approved" | "scheduled" | "published" | "failed"
+  product_id: string | null
+  products: ProductInfo | null
   tokens_used: number
   created_at: string
   brands: { name: string; url: string } | null
@@ -532,6 +544,11 @@ export default function PostsPage() {
                       </div>
                     </div>
 
+                    {/* Product mini thumbnail */}
+                    {post.products?.image_url && (
+                      <img src={post.products.image_url} alt="" className="h-6 w-6 flex-shrink-0 rounded object-cover" />
+                    )}
+
                     {/* Image status indicator */}
                     {post.image_url ? (
                       <ImageIcon className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
@@ -695,6 +712,14 @@ export default function PostsPage() {
                             <div className="mt-3 rounded-lg bg-zinc-50 px-3 py-2">
                               <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Prompt imagine</p>
                               <p className="mt-0.5 text-[12px] text-zinc-600">{post.image_prompt}</p>
+                            </div>
+                          )}
+
+                          {/* Linked product */}
+                          {post.products && (
+                            <div className="mt-3">
+                              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400">Produs asociat</p>
+                              <ProductCardMini product={post.products} />
                             </div>
                           )}
 

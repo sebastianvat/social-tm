@@ -60,6 +60,7 @@ export interface Post {
   scheduled_at: string | null
   published_at: string | null
   status: 'draft' | 'approved' | 'scheduled' | 'published' | 'failed'
+  product_id: string | null
   tokens_used: number
   created_at: string
 }

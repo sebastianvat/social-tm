@@ -35,51 +35,82 @@ export async function POST(request: NextRequest) {
   const { data: products } = await productsQuery.limit(50)
 
   const months = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"]
+  const daysInMonth = new Date(year, month, 0).getDate()
 
-  const productsList = products?.map((p, i) => `[PRODUS_${i}] ${p.name}${p.description ? `: ${p.description}` : ""}${p.price ? ` (${p.price})` : ""}`).join("\n") || "Nu au fost gasite produse specifice."
+  const productsList = products?.map((p, i) => `[P${i}] ${p.name}${p.price ? ` — ${p.price}` : ""}${p.category ? ` [${p.category}]` : ""}${p.description ? ` | ${p.description.slice(0, 120)}` : ""}`).join("\n") || "Niciun produs selectat."
+
+  const platformRules: Record<string, string> = {
+    instagram: "Instagram: Hook puternic in primele 125 chars (vizibile inainte de 'more'). 400-800 chars total. CTA intrebare la final. Emoji moderat (1-3). Hashtag-uri SEPARATE (nu in corp). Ton conversational.",
+    facebook: "Facebook: Text mai lung (500-1200 chars). Storytelling sau value-first. Link in text permis. Emoji minimal. 3-5 hashtag-uri la final. Ton cald, comunitar.",
+    linkedin: "LinkedIn: Profesional dar uman. Hook puternic in primele 2 linii. 600-1500 chars. Insight sau lectie. 3-5 hashtag-uri la final. Ton expert, thought-leader.",
+    tiktok: "TikTok: Scurt, direct, trend-aware. 200-400 chars. Limbaj Gen Z friendly. Emoji OK. 3-5 hashtag-uri trending. Ton energic, fun."
+  }
+  const activePlatformRules = platforms.map((p: string) => platformRules[p] || "").filter(Boolean).join("\n")
 
   try {
-    const prompt = `Esti un expert in social media marketing. Creeaza un calendar de continut pentru luna ${months[month - 1]} ${year}.
+    const systemPrompt = `Esti SOCIAL STRATEGIST — un expert in social media marketing cu 12 ani experienta in piata romaneasca. Ai gestionat branduri din e-commerce, servicii si retail. Stilul tau: creativ, data-driven, adaptat culturii romanesti.
 
-BRAND: ${brand.name}
-WEBSITE: ${brand.url}
-DESCRIERE: ${brand.description || "N/A"}
-${brand.brand_voice ? `VOCEA BRANDULUI: ${brand.brand_voice}` : ""}
-${brand.tone ? `TON COMUNICARE: ${brand.tone}` : ""}
-${brand.target_audience ? `AUDIENTA TINTA: ${brand.target_audience}` : ""}
-${brand.content_pillars?.length ? `PILONI DE CONTINUT: ${brand.content_pillars.join(", ")}` : ""}
-${brand.visual_style ? `STIL VIZUAL: ${brand.visual_style}` : ""}
-${brand.posting_rules ? `REGULI DE CONTINUT:\n${brand.posting_rules}` : ""}
-${brand.competitor_notes ? `NOTE COMPETITIVE: ${brand.competitor_notes}` : ""}
+REGULI ABSOLUTE:
+- Scrii DOAR in limba romana (nu romana cu diacritice obligatorii, dar corecta gramatical)
+- Fiecare postare trebuie sa fie UNICA — niciodata doua postari cu acelasi hook sau structura
+- Variaza stilul: intrebare, afirmatie puternica, storytelling, lista, citat, controversa blanda
+- NU repeta cuvinte-cheie in postari consecutive
+- Fiecare image_prompt trebuie sa fie specific, vizual, actionabil — NU generic
+- Postarile promo nu suna ca reclame — suna ca recomandari de la un prieten expert`
 
-PRODUSE SELECTATE PENTRU PROMOVARE:
+    const prompt = `Creeaza un calendar de continut pentru ${months[month - 1]} ${year} (${daysInMonth} zile).
+
+═══ PROFIL BRAND ═══
+Nume: ${brand.name}
+Website: ${brand.url}
+${brand.description ? `Descriere: ${brand.description}` : ""}
+${brand.brand_voice ? `Voce brand: ${brand.brand_voice}` : ""}
+${brand.tone ? `Ton comunicare: ${brand.tone}` : ""}
+${brand.target_audience ? `Audienta tinta: ${brand.target_audience}` : ""}
+${brand.content_pillars?.length ? `Piloni continut: ${brand.content_pillars.join(" | ")}` : ""}
+${brand.visual_style ? `Stil vizual: ${brand.visual_style}` : ""}
+${brand.posting_rules ? `Reguli DO/DON'T:\n${brand.posting_rules}` : ""}
+${brand.competitor_notes ? `Context competitiv: ${brand.competitor_notes}` : ""}
+
+═══ PRODUSE PENTRU PROMOVARE ═══
 ${productsList}
 
-PLATFORME: ${platforms.join(", ")}
+═══ REGULI PER PLATFORMA ═══
+${activePlatformRules}
 
-Genereaza exact ${postCount} postari distribuite uniform pe luna, cu mix de:
-- 40% Promo (produse, oferte, CTA puternic)
-- 25% Educational (tips, how-to, valoare pentru audienta)
-- 20% Engagement (intrebari, polls, conversatie)
-- 15% Brand Story (behind the scenes, echipa, valori)
+═══ MIX CONTINUT (${postCount} postari) ═══
+- 40% Promo — promoveaza produsele selectate, CTA subtil dar clar, beneficii nu features
+- 25% Educational — tips practice, how-to, myth-busting relevant pentru audienta
+- 20% Engagement — intrebari deschise, "tu ce preferi?", polls, conversatie reala
+- 15% Brand Story — behind the scenes, valori, echipa, procesul de creatie
 
-IMPORTANT: Postarile promo trebuie sa promoveze produsele selectate. Distribuie postarile promo pe produsele disponibile.
+Distribuie egal pe ${daysInMonth} zile. Alterna tipurile — NICIODATA 2 postari promo consecutive.
 
-Pentru fiecare postare returneza un JSON object cu aceste campuri:
-- day: numarul zilei din luna (1-${new Date(year, month, 0).getDate()})
-- content: textul postarii (150-300 caractere, in romana)
-- hashtags: array de 5-8 hashtags relevante
-- post_type: "promo" | "educational" | "engagement" | "brand_story"
-- platform: una din platformele specificate
-- image_prompt: descriere in engleza pentru generarea imaginii AI (50-100 cuvinte, descriptiv, include stil vizual)
-- best_time: ora optima de postare (format "HH:MM")
-- product_index: indexul produsului asociat (0, 1, 2, ...) sau null daca postarea nu e despre un produs specific
+═══ FORMAT IMAGINE (IMPORTANT — pt Gemini image model) ═══
+image_prompt TREBUIE sa fie in ENGLEZA si sa urmeze acest format:
+"[Photography/illustration style], [subject description with specific details], [composition and framing], [lighting and mood], [color palette], [brand elements if relevant]. High quality, commercial grade."
 
-Raspunde DOAR cu un JSON array valid. Fara explicatii, fara markdown.`
+Exemplu BUN: "Flat lay product photography, artisan coffee beans in a ceramic bowl on a marble countertop, warm morning sunlight from left, soft shadows, earth tones with cream and dark brown, minimalist composition, no text. High quality, 4K."
+Exemplu RAU: "A nice picture of coffee" (PREA VAGA)
+
+═══ EXEMPLU OUTPUT (1 postare) ═══
+{"day":3,"content":"Stiai ca 73% dintre romani isi incep dimineata fara un ritual? ☕ Noi credem ca o cafea buna nu e un lux — e un act de self-care. Iar [Produs] transforma fiecare dimineata intr-un moment doar al tau. Ce ritual ai tu dimineata? Spune-ne in comentarii 👇","hashtags":["#RitualDeDimineata","#CafeaSpeciala","#SelfCare","#${brand.name.replace(/\s+/g, "")}","#MomentulTau"],"post_type":"engagement","platform":"instagram","image_prompt":"Overhead flat lay photography, steaming artisan coffee in handmade ceramic mug on wooden table, fresh pastry and open book beside it, warm golden morning light streaming from window, cozy earth tones with cream and amber, lifestyle composition, no text overlay. High quality, commercial photography.","best_time":"08:30","product_index":0}
+
+═══ CERINTA FINALA ═══
+Genereaza EXACT ${postCount} postari ca JSON array valid.
+Fiecare obiect: day, content, hashtags, post_type, platform, image_prompt, best_time, product_index.
+- day: 1-${daysInMonth}
+- product_index: indexul din lista produselor (0, 1, 2...) sau null
+- best_time: "HH:MM" (variaza: 08:00-10:00 dimineata, 12:00-13:00 pranz, 18:00-21:00 seara)
+- hashtags: include MEREU 1-2 hashtag-uri branduite (#${brand.name.replace(/\s+/g, "")})
+- content: respecta lungimea per platforma!
+
+RASPUNDE DOAR CU JSON ARRAY. Fara text, fara markdown, fara explicatii.`
 
     const message = await anthropic.messages.create({
       model: "claude-opus-4-20250514",
       max_tokens: 8000,
+      system: systemPrompt,
       messages: [{ role: "user", content: prompt }],
     })
 

@@ -44,7 +44,13 @@ export async function POST(request: NextRequest) {
 BRAND: ${brand.name}
 WEBSITE: ${brand.url}
 DESCRIERE: ${brand.description || "N/A"}
-${brand.brand_voice ? `TONUL BRANDULUI: ${brand.brand_voice}` : ""}
+${brand.brand_voice ? `VOCEA BRANDULUI: ${brand.brand_voice}` : ""}
+${brand.tone ? `TON COMUNICARE: ${brand.tone}` : ""}
+${brand.target_audience ? `AUDIENTA TINTA: ${brand.target_audience}` : ""}
+${brand.content_pillars?.length ? `PILONI DE CONTINUT: ${brand.content_pillars.join(", ")}` : ""}
+${brand.visual_style ? `STIL VIZUAL: ${brand.visual_style}` : ""}
+${brand.posting_rules ? `REGULI DE CONTINUT:\n${brand.posting_rules}` : ""}
+${brand.competitor_notes ? `NOTE COMPETITIVE: ${brand.competitor_notes}` : ""}
 
 PRODUSE SELECTATE PENTRU PROMOVARE:
 ${productsList}

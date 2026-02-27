@@ -17,6 +17,13 @@ export interface Brand {
   logo_url: string | null
   brand_voice: string | null
   colors: Record<string, string> | null
+  tone: string | null
+  target_audience: string | null
+  content_pillars: string[] | null
+  visual_style: string | null
+  posting_rules: string | null
+  hashtag_groups: Record<string, string[]> | null
+  competitor_notes: string | null
   last_scan_at: string | null
   created_at: string
   updated_at: string

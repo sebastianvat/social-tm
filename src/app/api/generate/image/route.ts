@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
 
   const { postId, prompt } = await request.json()
 
-  // Check tokens
   const { data: profile } = await supabase.from("profiles").select("tokens").eq("id", user.id).single()
   if (!profile || profile.tokens < TOKEN_COSTS.GENERATE_IMAGE) {
     return NextResponse.json({ error: "Tokeni insuficienti" }, { status: 402 })
@@ -29,13 +28,33 @@ export async function POST(request: NextRequest) {
       quality: "medium",
     })
 
-    const imageUrl = response.data?.[0]?.url || response.data?.[0]?.b64_json
-
-    if (!imageUrl) {
+    const b64Data = response.data?.[0]?.b64_json
+    if (!b64Data) {
       return NextResponse.json({ error: "Nu s-a generat imaginea" }, { status: 500 })
     }
 
-    // Update post with image
+    // Upload to Supabase Storage instead of returning raw base64
+    const fileName = `${user.id}/${postId || crypto.randomUUID()}-${Date.now()}.png`
+    const buffer = Buffer.from(b64Data, "base64")
+
+    const { error: uploadError } = await supabase.storage
+      .from("post-images")
+      .upload(fileName, buffer, {
+        contentType: "image/png",
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError)
+      return NextResponse.json({ error: "Eroare la salvarea imaginii" }, { status: 500 })
+    }
+
+    const { data: publicUrl } = supabase.storage
+      .from("post-images")
+      .getPublicUrl(fileName)
+
+    const imageUrl = publicUrl.publicUrl
+
     if (postId) {
       await supabase.from("posts").update({
         image_url: imageUrl,
@@ -44,7 +63,6 @@ export async function POST(request: NextRequest) {
       }).eq("id", postId).eq("user_id", user.id)
     }
 
-    // Deduct tokens
     const newBalance = profile.tokens - TOKEN_COSTS.GENERATE_IMAGE
     await supabase.from("profiles").update({ tokens: newBalance }).eq("id", user.id)
     await supabase.from("token_transactions").insert({
@@ -57,8 +75,8 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json({ imageUrl })
-  } catch (error) {
-    console.error("Image generation error:", error)
-    return NextResponse.json({ error: "Eroare la generarea imaginii" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Image generation error:", error?.message || error)
+    return NextResponse.json({ error: error?.message || "Eroare la generarea imaginii" }, { status: 500 })
   }
 }

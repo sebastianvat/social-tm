@@ -73,7 +73,16 @@ export default async function BrandDetailPage({
               </a>
             </div>
           </div>
-          <DeleteBrandButton brandId={brand.id} brandName={brand.name} />
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/dashboard/brands/${brand.id}/profile`}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              <Sparkles className="h-3 w-3" />
+              Profil brand
+            </Link>
+            <DeleteBrandButton brandId={brand.id} brandName={brand.name} />
+          </div>
         </div>
       </div>
 

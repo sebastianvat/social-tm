@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Zap, Loader2, Gift } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -13,7 +12,6 @@ export default function RegisterPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const router = useRouter()
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
@@ -21,23 +19,21 @@ export default function RegisterPage() {
     setError("")
 
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-        },
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, fullName }),
       })
 
-      if (error) {
-        setError(error.message)
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || "Eroare la inregistrare")
         setLoading(false)
         return
       }
 
-      router.refresh()
-      router.push("/dashboard")
+      window.location.href = "/dashboard"
     } catch {
       setError("Eroare la inregistrare. Incearca din nou.")
       setLoading(false)

@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Zap, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -12,7 +11,6 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const router = useRouter()
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -20,17 +18,21 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
 
-      if (error) {
-        setError(error.message)
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || "Eroare la conectare")
         setLoading(false)
         return
       }
 
-      router.refresh()
-      router.push("/dashboard")
+      window.location.href = "/dashboard"
     } catch {
       setError("Eroare la conectare. Incearca din nou.")
       setLoading(false)

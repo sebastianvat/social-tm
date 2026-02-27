@@ -108,7 +108,7 @@ Fiecare obiect: day, content, hashtags, post_type, platform, image_prompt, best_
 RASPUNDE DOAR CU JSON ARRAY. Fara text, fara markdown, fara explicatii.`
 
     const message = await anthropic.messages.create({
-      model: "claude-opus-4-20250514",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }],
@@ -116,12 +116,19 @@ RASPUNDE DOAR CU JSON ARRAY. Fara text, fara markdown, fara explicatii.`
 
     const responseText = message.content[0].type === "text" ? message.content[0].text : ""
     
+    if (!responseText) {
+      return NextResponse.json({ error: "Claude nu a returnat text. Stop reason: " + message.stop_reason }, { status: 500 })
+    }
+
     let posts
     try {
       const jsonMatch = responseText.match(/\[[\s\S]*\]/)
-      posts = JSON.parse(jsonMatch ? jsonMatch[0] : responseText)
-    } catch {
-      return NextResponse.json({ error: "Eroare la parsarea raspunsului AI" }, { status: 500 })
+      if (!jsonMatch) {
+        return NextResponse.json({ error: "AI nu a returnat JSON valid. Inceput raspuns: " + responseText.slice(0, 200) }, { status: 500 })
+      }
+      posts = JSON.parse(jsonMatch[0])
+    } catch (parseErr: any) {
+      return NextResponse.json({ error: "JSON parse error: " + (parseErr?.message || "unknown").slice(0, 200) }, { status: 500 })
     }
 
     // Create calendar
@@ -181,8 +188,9 @@ RASPUNDE DOAR CU JSON ARRAY. Fara text, fara markdown, fara explicatii.`
       postCount: posts.length,
       tokensUsed: totalCost,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Generate error:", error)
-    return NextResponse.json({ error: "Eroare la generarea calendarului" }, { status: 500 })
+    const msg = error?.message || error?.toString() || "Eroare necunoscuta"
+    return NextResponse.json({ error: `Eroare generare: ${msg.slice(0, 300)}` }, { status: 500 })
   }
 }

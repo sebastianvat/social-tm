@@ -133,9 +133,18 @@ export default function GenerateCalendarPage() {
           selectedProductIds: Array.from(selectedProducts),
         }),
       })
-      const data = await res.json()
+
+      let data
+      try {
+        data = await res.json()
+      } catch {
+        setError(`Server error (${res.status}). Posibil timeout — incearca cu mai putine postari.`)
+        setStep("config")
+        return
+      }
+
       if (!res.ok) {
-        setError(data.error || "Eroare la generare")
+        setError(data.error || `Eroare server (${res.status})`)
         setStep("config")
         return
       }
@@ -146,8 +155,8 @@ export default function GenerateCalendarPage() {
       setPosts(postsData.posts?.map((p: any) => ({ ...p, selected: true })) || [])
       setCalendarId(data.calendarId)
       setStep("review")
-    } catch {
-      setError("Eroare de conexiune")
+    } catch (err: any) {
+      setError(`Eroare conexiune: ${err?.message || "Network error"}. Verifica conexiunea si incearca din nou.`)
       setStep("config")
     }
   }

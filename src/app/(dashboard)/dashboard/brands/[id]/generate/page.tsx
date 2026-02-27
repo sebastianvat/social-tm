@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useState, useEffect, useCallback } from "react"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Sparkles, Loader2, Coins, Calendar, Check, Trash2, Image as ImageIcon, ChevronDown, ChevronUp, Package, Wand2, X, ExternalLink } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
@@ -47,6 +47,7 @@ type Step = "config" | "choose_mode" | "generating" | "review"
 
 export default function GenerateCalendarPage() {
   const params = useParams()
+  const router = useRouter()
   const brandId = params.id as string
 
   const now = new Date()
@@ -72,12 +73,6 @@ export default function GenerateCalendarPage() {
     return () => clearInterval(t)
   }, [step])
 
-  useEffect(() => {
-    if (step !== "generating") return
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
-    window.addEventListener("beforeunload", handler)
-    return () => window.removeEventListener("beforeunload", handler)
-  }, [step])
 
   // Products
   const [products, setProducts] = useState<Product[]>([])
@@ -135,6 +130,35 @@ export default function GenerateCalendarPage() {
     await executeGenerate("add")
   }
 
+  const pollCalendarStatus = useCallback(async (calId: string) => {
+    const poll = async () => {
+      try {
+        const statusRes = await fetch(`/api/generate/calendar/status?calendarId=${calId}`)
+        const statusData = await statusRes.json()
+
+        if (statusData.status === "draft") {
+          const postsRes = await fetch(`/api/posts?calendarId=${calId}`)
+          const postsData = await postsRes.json()
+          setPosts(postsData.posts?.map((p: any) => ({ ...p, selected: true })) || [])
+          setCalendarId(calId)
+          setStep("review")
+          return
+        }
+
+        if (statusData.status === "failed") {
+          setError("Generarea a esuat. Incearca din nou.")
+          setStep("config")
+          return
+        }
+
+        setTimeout(poll, 3000)
+      } catch {
+        setTimeout(poll, 5000)
+      }
+    }
+    setTimeout(poll, 3000)
+  }, [])
+
   async function executeGenerate(mode: "add" | "replace") {
     setStep("generating")
     setError("")
@@ -158,7 +182,7 @@ export default function GenerateCalendarPage() {
       try {
         data = await res.json()
       } catch {
-        setError(`Server error (${res.status}). Posibil timeout — incearca cu mai putine postari.`)
+        setError(`Server error (${res.status}). Incearca din nou.`)
         setStep("config")
         return
       }
@@ -169,12 +193,8 @@ export default function GenerateCalendarPage() {
         return
       }
 
-      const postsRes = await fetch(`/api/posts?calendarId=${data.calendarId}`)
-      const postsData = await postsRes.json()
-
-      setPosts(postsData.posts?.map((p: any) => ({ ...p, selected: true })) || [])
       setCalendarId(data.calendarId)
-      setStep("review")
+      pollCalendarStatus(data.calendarId)
     } catch (err: any) {
       setError(`Eroare conexiune: ${err?.message || "Network error"}. Verifica conexiunea si incearca din nou.`)
       setStep("config")
@@ -387,7 +407,7 @@ export default function GenerateCalendarPage() {
     )
   }
 
-  // STEP: Generating
+  // STEP: Generating (background — user can navigate)
   if (step === "generating") {
     const statusMessages = [
       "Analizez profilul brandului...",
@@ -417,17 +437,31 @@ export default function GenerateCalendarPage() {
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
             <div
               className="h-full rounded-full bg-zinc-900 transition-all duration-1000 ease-out"
-              style={{ width: `${Math.min((elapsed / 50) * 100, 95)}%` }}
+              style={{ width: `${Math.min((elapsed / 120) * 100, 95)}%` }}
             />
           </div>
           <p className="mt-2 text-center text-[11px] text-zinc-400">
-            Claude Opus creeaza {postCount} idei unice · ~30-60 sec
+            Claude Opus genereaza {postCount} idei · se finalizeaza automat
           </p>
         </div>
-        <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
-          <p className="text-[12px] text-amber-700">
-            Nu inchide pagina — generarea se va opri daca parasesti.
+        <div className="mt-8 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5">
+          <p className="text-[12px] text-green-700">
+            Generarea ruleaza in background — poti naviga liber. Vei vedea postarile cand sunt gata.
           </p>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={() => router.push("/dashboard/posts")}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 px-4 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            <FileText className="h-3.5 w-3.5" /> Vezi Postari
+          </button>
+          <button
+            onClick={() => router.push("/dashboard/calendar")}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 px-4 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            <Calendar className="h-3.5 w-3.5" /> Vezi Calendar
+          </button>
         </div>
       </div>
     )

@@ -63,6 +63,20 @@ export default function GenerateCalendarPage() {
   const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set())
   const [bulkGenerating, setBulkGenerating] = useState(false)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (step !== "generating") { setElapsed(0); return }
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [step])
+
+  useEffect(() => {
+    if (step !== "generating") return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [step])
 
   // Products
   const [products, setProducts] = useState<Product[]>([])
@@ -301,11 +315,46 @@ export default function GenerateCalendarPage() {
 
   // STEP: Generating
   if (step === "generating") {
+    const statusMessages = [
+      "Analizez profilul brandului...",
+      "Selectez produsele potrivite...",
+      "Creez mix-ul de continut...",
+      "Generez texte pentru postari...",
+      "Optimizez hashtag-uri...",
+      "Creez prompt-uri pentru imagini...",
+      "Finalizez calendarul...",
+    ]
+    const msgIndex = Math.min(Math.floor(elapsed / 8), statusMessages.length - 1)
+    const mins = Math.floor(elapsed / 60)
+    const secs = elapsed % 60
+
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <Loader2 className="h-10 w-10 animate-spin text-zinc-900" />
+        <div className="relative">
+          <div className="h-16 w-16 rounded-full border-2 border-zinc-200" />
+          <Loader2 className="absolute inset-0 h-16 w-16 animate-spin text-zinc-900" />
+          <span className="absolute inset-0 flex items-center justify-center text-[13px] font-semibold text-zinc-900">
+            {mins > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : `${secs}s`}
+          </span>
+        </div>
         <h2 className="mt-6 text-xl font-semibold text-zinc-900">Se genereaza postarile...</h2>
-        <p className="mt-2 text-sm text-zinc-500">Claude Opus creeaza {postCount} idei unice. Dureaza ~30 secunde.</p>
+        <p className="mt-2 text-sm text-zinc-500 transition-opacity duration-500">{statusMessages[msgIndex]}</p>
+        <div className="mt-6 w-64">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+            <div
+              className="h-full rounded-full bg-zinc-900 transition-all duration-1000 ease-out"
+              style={{ width: `${Math.min((elapsed / 50) * 100, 95)}%` }}
+            />
+          </div>
+          <p className="mt-2 text-center text-[11px] text-zinc-400">
+            Claude Opus creeaza {postCount} idei unice · ~30-60 sec
+          </p>
+        </div>
+        <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+          <p className="text-[12px] text-amber-700">
+            Nu inchide pagina — generarea se va opri daca parasesti.
+          </p>
+        </div>
       </div>
     )
   }

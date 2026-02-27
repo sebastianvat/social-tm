@@ -16,13 +16,9 @@ import {
   ArrowUpRight,
   ChevronDown,
   Check,
-  Moon,
-  Sun,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { formatTokens } from "@/lib/utils"
+import { cn, formatTokens } from "@/lib/utils"
 import { useBrand } from "./brand-provider"
-import { useTheme } from "./theme-provider"
 import { useState, useRef, useEffect } from "react"
 
 const mainNav = [
@@ -46,7 +42,6 @@ interface SidebarProps {
 export function Sidebar({ tokens }: SidebarProps) {
   const pathname = usePathname()
   const { brands, selectedBrand, selectBrand } = useBrand()
-  const { theme, toggleTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -292,27 +287,6 @@ export function Sidebar({ tokens }: SidebarProps) {
         </div>
       </nav>
 
-      {/* Dark mode toggle + Token balance */}
-      <div className="border-t border-zinc-100 p-3">
-        <button
-          onClick={toggleTheme}
-          className="mb-2 flex w-full items-center justify-between rounded-md px-2.5 py-2 text-[13px] font-medium text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
-        >
-          <span className="flex items-center gap-2.5">
-            {theme === "dark" ? <Sun className="h-4 w-4 text-zinc-400" /> : <Moon className="h-4 w-4 text-zinc-400" />}
-            {theme === "dark" ? "Light mode" : "Dark mode"}
-          </span>
-          <div className={cn(
-            "relative h-5 w-9 rounded-full transition-colors",
-            theme === "dark" ? "bg-zinc-600" : "bg-zinc-200"
-          )}>
-            <div className={cn(
-              "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
-              theme === "dark" ? "translate-x-4" : "translate-x-0.5"
-            )} />
-          </div>
-        </button>
-      </div>
       <div className="border-t border-zinc-100 p-3">
         <div className="mb-2 flex items-center justify-between px-2.5">
           <span className="text-[11px] font-medium text-zinc-400">Tokeni ramasi</span>

@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { Globe, Package, Calendar, Sparkles, ArrowLeft, ExternalLink, Coins } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
+import { DeleteBrandButton } from "./delete-brand-button"
 
 export default async function BrandDetailPage({
   params,
@@ -72,6 +73,7 @@ export default async function BrandDetailPage({
               </a>
             </div>
           </div>
+          <DeleteBrandButton brandId={brand.id} brandName={brand.name} />
         </div>
       </div>
 

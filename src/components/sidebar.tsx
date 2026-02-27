@@ -24,12 +24,14 @@ import { useState, useRef, useEffect } from "react"
 
 const mainNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+]
+
+const contentNav = [
   { name: "Postari", href: "/dashboard/posts", icon: FileText },
   { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
 ]
 
 const toolsNav = [
-  { name: "Genereaza continut", href: "/dashboard/brands/new", icon: Sparkles },
   { name: "Auto-posting", href: "/dashboard/posting", icon: Send },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
 ]
@@ -150,7 +152,7 @@ export function Sidebar({ tokens }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 pt-2">
         <div className="space-y-0.5">
           {mainNav.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const isActive = pathname === item.href && !pathname.includes("/brands/")
             return (
               <Link
                 key={item.name}
@@ -167,6 +169,62 @@ export function Sidebar({ tokens }: SidebarProps) {
               </Link>
             )
           })}
+
+          {/* Brand link — dynamic based on selected brand */}
+          {selectedBrand ? (
+            <Link
+              href={`/dashboard/brands/${selectedBrand.id}`}
+              className={cn(
+                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors",
+                pathname.includes("/dashboard/brands/") && pathname !== "/dashboard/brands" && pathname !== "/dashboard/brands/new"
+                  ? "bg-zinc-100 text-zinc-900"
+                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+              )}
+            >
+              <Globe className={cn("h-4 w-4", pathname.includes("/dashboard/brands/") && pathname !== "/dashboard/brands" && pathname !== "/dashboard/brands/new" ? "text-zinc-900" : "text-zinc-400")} />
+              Brand
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/brands"
+              className={cn(
+                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors",
+                pathname === "/dashboard/brands"
+                  ? "bg-zinc-100 text-zinc-900"
+                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+              )}
+            >
+              <Globe className={cn("h-4 w-4", pathname === "/dashboard/brands" ? "text-zinc-900" : "text-zinc-400")} />
+              Brand
+            </Link>
+          )}
+        </div>
+
+        {/* Content section */}
+        <div className="mt-6">
+          <p className="mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+            Continut
+          </p>
+          <div className="space-y-0.5">
+            {contentNav.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors",
+                    isActive
+                      ? "bg-zinc-100 text-zinc-900"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+                  )}
+                >
+                  <item.icon className={cn("h-4 w-4", isActive ? "text-zinc-900" : "text-zinc-400")} />
+                  {item.name}
+                </Link>
+              )
+            })}
+          </div>
         </div>
 
         {/* Tools section */}

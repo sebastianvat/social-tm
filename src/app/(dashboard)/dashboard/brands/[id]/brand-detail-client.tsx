@@ -50,8 +50,8 @@ function displayPrice(raw: string | null): string | null {
 }
 
 const TABS = [
-  { id: "products", label: "Catalog produse", icon: Package },
-  { id: "profile", label: "Profil brand", icon: Sparkles },
+  { id: "products", label: "Colectie de produse", icon: Package },
+  { id: "profile", label: "Informatii brand", icon: Sparkles },
   { id: "calendars", label: "Calendare", icon: Calendar },
 ] as const
 

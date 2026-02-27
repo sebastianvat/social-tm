@@ -12,8 +12,18 @@ interface Product {
   url: string | null
 }
 
+function displayPrice(raw: string | null): string | null {
+  if (!raw) return null
+  const normalized = raw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim()
+  const match = normalized.match(/([\d.,]+)\s*(lei|ron|eur|€|\$|usd)/i)
+  if (match) return `${match[1]} ${match[2]}`
+  if (/^[\d.,]+$/.test(normalized)) return normalized
+  return normalized.slice(0, 20)
+}
+
 export function ProductCardMini({ product }: { product: Product }) {
   const [hovered, setHovered] = useState(false)
+  const price = displayPrice(product.price)
 
   return (
     <div
@@ -21,7 +31,6 @@ export function ProductCardMini({ product }: { product: Product }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Mini view — always visible */}
       <div className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2 transition-colors hover:border-zinc-300">
         {product.image_url ? (
           <img
@@ -37,12 +46,11 @@ export function ProductCardMini({ product }: { product: Product }) {
         <span className="max-w-[120px] truncate text-[11px] font-medium text-zinc-700">
           {product.name}
         </span>
-        {product.price && (
-          <span className="text-[10px] font-semibold text-zinc-900">{product.price}</span>
+        {price && (
+          <span className="flex-shrink-0 text-[10px] font-semibold text-zinc-900">{price}</span>
         )}
       </div>
 
-      {/* Expanded hover card */}
       {hovered && (
         <div className="absolute bottom-full left-0 z-50 mb-2 w-72 rounded-xl border border-zinc-200 bg-white p-4 shadow-lg">
           <div className="flex gap-3">
@@ -59,8 +67,8 @@ export function ProductCardMini({ product }: { product: Product }) {
             )}
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-medium text-zinc-900">{product.name}</p>
-              {product.price && (
-                <p className="mt-0.5 text-[13px] font-semibold text-zinc-900">{product.price}</p>
+              {price && (
+                <p className="mt-0.5 text-[13px] font-semibold text-zinc-900">{price}</p>
               )}
               {product.description && (
                 <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-zinc-500">
@@ -99,6 +107,7 @@ export function ProductSelector({
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {products.map((product) => {
         const isSelected = selected.has(product.id)
+        const price = displayPrice(product.price)
         return (
           <button
             key={product.id}
@@ -121,9 +130,9 @@ export function ProductSelector({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-medium text-zinc-900 line-clamp-2">{product.name}</p>
-              {product.price && (
-                <p className="mt-0.5 text-[11px] font-semibold text-zinc-700">{product.price}</p>
+              <p className="line-clamp-2 text-[12px] font-medium text-zinc-900">{product.name}</p>
+              {price && (
+                <p className="mt-0.5 text-[11px] font-semibold text-zinc-700">{price}</p>
               )}
             </div>
             <div

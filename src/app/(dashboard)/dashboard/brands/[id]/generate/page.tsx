@@ -52,7 +52,7 @@ export default function GenerateCalendarPage() {
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 2 > 12 ? 1 : now.getMonth() + 2)
   const [year, setYear] = useState(now.getMonth() + 2 > 12 ? now.getFullYear() + 1 : now.getFullYear())
-  const [postCount, setPostCount] = useState(30)
+  const [postCount, setPostCount] = useState(20)
   const [platforms, setPlatforms] = useState(["facebook", "instagram"])
   const [error, setError] = useState("")
 
@@ -222,11 +222,11 @@ export default function GenerateCalendarPage() {
 
           {/* Post count */}
           <div className="rounded-xl border border-zinc-200 bg-white p-5">
-            <p className="mb-3 text-[13px] font-medium text-zinc-900">Numar postari</p>
+            <p className="mb-3 text-[13px] font-medium text-zinc-900">Numar idei de postari</p>
             <div className="grid grid-cols-3 gap-2">
-              {[15, 30, 60].map((n) => (
+              {[10, 20, 30].map((n) => (
                 <button key={n} onClick={() => setPostCount(n)} className={`flex h-10 items-center justify-center rounded-lg border text-[13px] font-medium transition-colors ${postCount === n ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-700 hover:border-zinc-300"}`}>
-                  {n} postari
+                  {n} idei
                 </button>
               ))}
             </div>

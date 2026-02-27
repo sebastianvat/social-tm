@@ -25,6 +25,7 @@ import {
   CheckSquare,
   Square,
   MinusSquare,
+  ExternalLink,
 } from "lucide-react"
 import { useBrand } from "@/components/brand-provider"
 import { ProductCardMini } from "@/components/product-card"
@@ -316,6 +317,8 @@ export default function PostsPage() {
     published: posts.filter((p) => p.status === "published").length,
     noImage: posts.filter((p) => p.image_prompt && !p.image_url).length,
   }
+
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   const isBulkBusy = bulkGenerating || bulkDeleting || bulkStatusChange
 
@@ -714,8 +717,16 @@ export default function PostsPage() {
                             </div>
 
                             {post.image_url && (
-                              <div className="flex-shrink-0">
-                                <img src={post.image_url} alt="" className="h-24 w-24 rounded-lg object-cover" />
+                              <div
+                                className="flex-shrink-0 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); setLightboxUrl(post.image_url) }}
+                              >
+                                <img
+                                  src={post.image_url}
+                                  alt=""
+                                  className="h-28 w-28 rounded-lg object-cover ring-1 ring-zinc-200 transition-transform hover:scale-105"
+                                />
+                                <p className="mt-1 text-center text-[10px] text-zinc-400">Click pentru marit</p>
                               </div>
                             )}
                           </div>
@@ -789,16 +800,13 @@ export default function PostsPage() {
                             )}
 
                             {post.image_url && (
-                              <a
-                                href={post.image_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setLightboxUrl(post.image_url) }}
                                 className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-200 px-3 text-[11px] font-medium text-zinc-500 hover:bg-zinc-50"
                               >
                                 <Eye className="h-3 w-3" />
-                                Vezi imaginea
-                              </a>
+                                Vezi imaginea mare
+                              </button>
                             )}
                           </div>
                         </div>
@@ -808,6 +816,39 @@ export default function PostsPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Image lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-8 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Imagine generata"
+            className="max-h-[85vh] max-w-[85vw] rounded-xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-3">
+            <a
+              href={lightboxUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-4 text-[13px] font-medium text-zinc-900 shadow-lg hover:bg-zinc-100"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Deschide original (1024x1024)
+            </a>
           </div>
         </div>
       )}

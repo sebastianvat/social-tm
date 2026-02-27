@@ -137,7 +137,7 @@ export default async function CalendarPage({
             {todayPosts.map((post) => (
               <Link
                 key={post.id}
-                href="/dashboard/posts"
+                href={`/dashboard/posts?expand=${post.id}`}
                 className="flex items-center justify-between rounded-lg bg-white border border-zinc-100 p-3 transition-colors hover:border-zinc-200"
               >
                 <div className="flex items-center gap-3">
@@ -226,16 +226,17 @@ export default async function CalendarPage({
                 </div>
                 <div className="mt-1 space-y-0.5">
                   {dayPosts.slice(0, 3).map((post) => (
-                    <div
+                    <Link
                       key={post.id}
-                      className="flex items-center gap-1 rounded px-1 py-0.5 bg-zinc-100"
+                      href={`/dashboard/posts?expand=${post.id}`}
+                      className="flex items-center gap-1 rounded px-1 py-0.5 bg-zinc-100 transition-colors hover:bg-zinc-200"
                     >
                       <div className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${POST_TYPE_COLORS[post.post_type] || "bg-zinc-400"}`} />
                       <span className="truncate text-[10px] text-zinc-600">{post.platform}</span>
-                    </div>
+                    </Link>
                   ))}
                   {dayPosts.length > 3 && (
-                    <span className="block text-[10px] text-zinc-400 px-1">+{dayPosts.length - 3} mai mult</span>
+                    <Link href="/dashboard/posts" className="block text-[10px] text-zinc-400 px-1 hover:text-zinc-600">+{dayPosts.length - 3} mai mult</Link>
                   )}
                 </div>
               </div>

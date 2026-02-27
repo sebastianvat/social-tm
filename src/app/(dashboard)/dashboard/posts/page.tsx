@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   FileText,
   Search,
@@ -97,6 +98,8 @@ const typeLabels: Record<string, string> = {
 
 export default function PostsPage() {
   const { selectedBrandId, selectedBrand } = useBrand()
+  const searchParams = useSearchParams()
+  const expandParam = searchParams.get("expand")
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -137,6 +140,14 @@ export default function PostsPage() {
   useEffect(() => {
     fetchPosts()
   }, [fetchPosts])
+
+  useEffect(() => {
+    if (expandParam && posts.length > 0) {
+      setExpandedId(expandParam)
+      const el = document.getElementById(`post-${expandParam}`)
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [expandParam, posts.length])
 
   const filteredPosts = searchQuery
     ? posts.filter(
@@ -495,6 +506,7 @@ export default function PostsPage() {
               return (
                 <div
                   key={post.id}
+                  id={`post-${post.id}`}
                   className={`rounded-xl border bg-white transition-shadow hover:shadow-sm ${
                     isSelected ? "border-zinc-400 ring-1 ring-zinc-200" : "border-zinc-100"
                   }`}

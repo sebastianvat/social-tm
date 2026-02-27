@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/sidebar"
 import { BrandProvider } from "@/components/brand-provider"
+import { ThemeProvider } from "@/components/theme-provider"
 import { Coins } from "lucide-react"
 import { formatTokens } from "@/lib/utils"
 
@@ -28,28 +29,25 @@ export default async function DashboardLayout({
   const validBrandId = brands?.some((b) => b.id === savedBrand) ? savedBrand : (brands?.[0]?.id || null)
 
   return (
-    <BrandProvider brands={brands || []} initialBrandId={validBrandId}>
-      <div className="flex h-screen bg-white">
-        <Sidebar tokens={tokens} />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <header className="flex h-12 flex-shrink-0 items-center justify-end border-b border-zinc-100 px-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5 text-[13px] text-zinc-500">
-                <Coins className="h-3.5 w-3.5 text-zinc-400" />
-                <span>{formatTokens(tokens)} credits remaining</span>
+    <ThemeProvider>
+      <BrandProvider brands={brands || []} initialBrandId={validBrandId}>
+        <div className="flex h-screen bg-white">
+          <Sidebar tokens={tokens} />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <header className="flex h-12 flex-shrink-0 items-center justify-end border-b border-zinc-100 px-6">
+              <div className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-medium text-zinc-700">
+                <Coins className="h-3 w-3 text-zinc-400" />
+                {formatTokens(tokens)} tokeni
               </div>
-              <div className="rounded-full bg-zinc-900 px-3 py-1 text-[12px] font-medium text-white">
-                You have {formatTokens(tokens)} credits left.
+            </header>
+            <main className="flex-1 overflow-y-auto">
+              <div className="mx-auto max-w-4xl px-8 py-10">
+                {children}
               </div>
-            </div>
-          </header>
-          <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-4xl px-8 py-10">
-              {children}
-            </div>
-          </main>
+            </main>
+          </div>
         </div>
-      </div>
-    </BrandProvider>
+      </BrandProvider>
+    </ThemeProvider>
   )
 }

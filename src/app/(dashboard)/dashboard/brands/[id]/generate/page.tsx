@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Sparkles, Loader2, Coins, Calendar, Check, Trash2, Image as ImageIcon, ChevronDown, ChevronUp, Package, Wand2, X, ExternalLink } from "lucide-react"
+import { ArrowLeft, Sparkles, Loader2, Coins, Calendar, Check, Trash2, Image as ImageIcon, ChevronDown, ChevronUp, Package, Wand2, X, ExternalLink, FileText } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
 import { ProductSelector } from "@/components/product-card"
 

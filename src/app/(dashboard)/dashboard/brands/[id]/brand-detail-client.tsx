@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Package, Calendar, Sparkles, ExternalLink, Coins, Globe, Plus,
-  Search, RefreshCw, Loader2, Trash2, Image as ImageIcon, Link2,
+  Search, RefreshCw, Loader2, Trash2, Image as ImageIcon, Link2, X,
 } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
 import { DeleteBrandButton } from "./delete-brand-button"
@@ -17,6 +17,7 @@ interface Product {
   price: string | null
   image_url: string | null
   url: string | null
+  category?: string | null
 }
 
 interface CalendarItem {
@@ -76,8 +77,25 @@ export function BrandDetailClient({
   const [scanError, setScanError] = useState("")
   const [scanSuccess, setScanSuccess] = useState("")
   const [productSearch, setProductSearch] = useState("")
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   const hasProfile = !!(brand.brand_voice || brand.tone || brand.target_audience)
+
+  const closeModal = useCallback(() => setSelectedProduct(null), [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeModal()
+    }
+    if (selectedProduct) {
+      document.addEventListener("keydown", onKey)
+      document.body.style.overflow = "hidden"
+    }
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = ""
+    }
+  }, [selectedProduct, closeModal])
 
   async function handleRescan(url: string) {
     if (!url) return
@@ -262,7 +280,11 @@ export function BrandDetailClient({
               {filteredProducts.map((product) => {
                 const price = displayPrice(product.price)
                 return (
-                  <div key={product.id} className="group rounded-xl border border-zinc-200 bg-white p-3 transition-colors hover:border-zinc-300">
+                  <button
+                    key={product.id}
+                    onClick={() => setSelectedProduct(product)}
+                    className="group rounded-xl border border-zinc-200 bg-white p-3 text-left transition-all hover:border-zinc-400 hover:shadow-sm"
+                  >
                     <div className="flex gap-3">
                       {product.image_url ? (
                         <img
@@ -285,17 +307,7 @@ export function BrandDetailClient({
                         )}
                       </div>
                     </div>
-                    {product.url && (
-                      <a
-                        href={product.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 flex items-center gap-1 text-[10px] text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        <ExternalLink className="h-2.5 w-2.5" /> Vezi pe site
-                      </a>
-                    )}
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -422,6 +434,87 @@ export function BrandDetailClient({
               <p className="mt-2 text-[13px] text-zinc-500">Niciun calendar generat inca</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={closeModal}
+        >
+          <div
+            className="relative mx-4 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeModal}
+              className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/10 text-white backdrop-blur-sm transition-colors hover:bg-black/20"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Image */}
+            {selectedProduct.image_url ? (
+              <div className="relative h-64 flex-shrink-0 bg-zinc-100">
+                <img
+                  src={selectedProduct.image_url}
+                  alt={selectedProduct.name}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex h-40 flex-shrink-0 items-center justify-center bg-zinc-100">
+                <Package className="h-12 w-12 text-zinc-300" />
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5">
+              {selectedProduct.category && (
+                <span className="mb-2 inline-block rounded-full bg-zinc-100 px-2.5 py-0.5 text-[11px] font-medium text-zinc-500">
+                  {selectedProduct.category}
+                </span>
+              )}
+              <h2 className="text-lg font-semibold text-zinc-900">
+                {selectedProduct.name}
+              </h2>
+
+              {displayPrice(selectedProduct.price) && (
+                <p className="mt-1.5 text-xl font-bold text-zinc-900">
+                  {displayPrice(selectedProduct.price)}
+                </p>
+              )}
+
+              {selectedProduct.description && (
+                <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-zinc-600">
+                  {selectedProduct.description}
+                </p>
+              )}
+
+              {/* Actions */}
+              <div className="mt-5 flex gap-2">
+                {selectedProduct.url && (
+                  <a
+                    href={selectedProduct.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 text-[13px] font-medium text-white hover:bg-zinc-800"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Vezi pe site
+                  </a>
+                )}
+                <button
+                  onClick={closeModal}
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-zinc-200 px-4 text-[13px] font-medium text-zinc-600 hover:bg-zinc-50"
+                >
+                  Inchide
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

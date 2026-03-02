@@ -228,7 +228,7 @@ export default function PostsPage() {
     if (!post.image_prompt || generatingImages.has(post.id)) return
     const actId = `img-${post.id}`
     setGeneratingImages((prev) => new Set(prev).add(post.id))
-    activity.addActivity({ id: actId, type: "image", label: post.content.slice(0, 40) + "..." })
+    activity.addActivity({ id: actId, type: "image", label: post.content.slice(0, 40) + "...", href: `/dashboard/posts?expand=${post.id}` })
 
     try {
       const res = await fetch("/api/generate/image", {
@@ -262,7 +262,7 @@ export default function PostsPage() {
 
     for (const post of selectedWithoutImage) {
       const actId = `img-${post.id}`
-      activity.addActivity({ id: actId, type: "image", label: post.content.slice(0, 40) + "..." })
+      activity.addActivity({ id: actId, type: "image", label: post.content.slice(0, 40) + "...", href: `/dashboard/posts?expand=${post.id}` })
       try {
         const res = await fetch("/api/generate/image", {
           method: "POST",

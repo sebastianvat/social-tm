@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Loader2, Check, AlertCircle, ChevronDown, ChevronUp, Zap, Image, FileText, Calendar, Globe } from "lucide-react"
 import { useActivity, type ActivityItem } from "./activity-provider"
 
@@ -29,6 +30,7 @@ function StatusIcon({ status }: { status: ActivityItem["status"] }) {
 
 export function ActivityPanel() {
   const { activities, runningCount } = useActivity()
+  const router = useRouter()
   const [expanded, setExpanded] = useState(true)
 
   if (activities.length === 0) return null
@@ -62,32 +64,41 @@ export function ActivityPanel() {
       {/* Items */}
       {expanded && (
         <div className="max-h-48 overflow-y-auto">
-          {activities.map((item) => (
-            <div
-              key={item.id}
-              className={`flex items-center gap-2.5 border-b border-zinc-50 px-3 py-2 last:border-0 ${
-                item.status === "done" ? "bg-green-50/50" :
-                item.status === "error" ? "bg-red-50/50" : ""
-              }`}
-            >
-              <StatusIcon status={item.status} />
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <span className="text-zinc-400">{typeIcons[item.type]}</span>
-                <span className="truncate text-[11px] text-zinc-700">{item.label}</span>
-              </div>
-              {item.status === "running" && (
-                <span className="flex-shrink-0 text-[10px] text-zinc-400">
-                  <ElapsedTime startedAt={item.startedAt} />
-                </span>
-              )}
-              {item.status === "done" && (
-                <span className="flex-shrink-0 text-[10px] text-green-600">Gata</span>
-              )}
-              {item.status === "error" && (
-                <span className="flex-shrink-0 text-[10px] text-red-500">Eroare</span>
-              )}
-            </div>
-          ))}
+          {activities.map((item) => {
+            const isClickable = !!item.href
+            const Tag = isClickable ? "button" : "div"
+            return (
+              <Tag
+                key={item.id}
+                onClick={isClickable ? () => router.push(item.href!) : undefined}
+                className={`flex w-full items-center gap-2.5 border-b border-zinc-50 px-3 py-2 text-left last:border-0 ${
+                  item.status === "done" ? "bg-green-50/50" :
+                  item.status === "error" ? "bg-red-50/50" : ""
+                } ${isClickable ? "cursor-pointer hover:bg-zinc-50" : ""}`}
+              >
+                <StatusIcon status={item.status} />
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className="text-zinc-400">{typeIcons[item.type]}</span>
+                  <span className={`truncate text-[11px] ${isClickable ? "text-zinc-900 underline decoration-zinc-300" : "text-zinc-700"}`}>
+                    {item.label}
+                  </span>
+                </div>
+                {item.status === "running" && (
+                  <span className="flex-shrink-0 text-[10px] text-zinc-400">
+                    <ElapsedTime startedAt={item.startedAt} />
+                  </span>
+                )}
+                {item.status === "done" && (
+                  <span className="flex-shrink-0 text-[10px] text-green-600">
+                    {isClickable ? "Vezi →" : "Gata"}
+                  </span>
+                )}
+                {item.status === "error" && (
+                  <span className="flex-shrink-0 text-[10px] text-red-500">Eroare</span>
+                )}
+              </Tag>
+            )
+          })}
         </div>
       )}
     </div>

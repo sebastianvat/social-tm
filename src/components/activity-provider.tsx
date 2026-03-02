@@ -6,6 +6,7 @@ export type ActivityItem = {
   id: string
   type: "image" | "description" | "calendar" | "scan"
   label: string
+  href?: string
   status: "running" | "done" | "error"
   startedAt: number
 }

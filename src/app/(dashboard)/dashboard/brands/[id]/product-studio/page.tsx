@@ -82,7 +82,7 @@ export default function ProductStudioPage() {
     setGeneratingPhoto(true)
     setError("")
     const actId = `studio-photo-${selected.id}-${Date.now()}`
-    activity.addActivity({ id: actId, type: "image", label: `Studio: ${selected.name.slice(0, 30)}` })
+    activity.addActivity({ id: actId, type: "image", label: `Studio: ${selected.name.slice(0, 30)}`, href: `/dashboard/brands/${brandId}/product-studio` })
 
     try {
       const res = await fetch("/api/generate/product-photo", {

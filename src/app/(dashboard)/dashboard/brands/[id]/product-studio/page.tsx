@@ -125,6 +125,13 @@ export default function ProductStudioPage() {
 
   async function discardPhoto(photoUrl: string) {
     setGeneratedPhotos((prev) => prev.filter((p) => p.url !== photoUrl))
+    try {
+      await fetch("/api/storage/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: photoUrl, bucket: "post-images" }),
+      })
+    } catch {}
   }
 
   async function setAsMain(photoUrl: string) {

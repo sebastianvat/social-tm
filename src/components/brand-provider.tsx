@@ -58,10 +58,11 @@ export function BrandProvider({
       setSelectedBrandId(brandId)
       if (brandId) {
         setCookie("selected_brand", brandId)
+        router.push(`/dashboard/brands/${brandId}`)
       } else {
         deleteCookie("selected_brand")
+        router.push("/dashboard")
       }
-      router.refresh()
     },
     [router]
   )

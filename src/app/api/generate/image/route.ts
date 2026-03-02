@@ -25,7 +25,9 @@ export async function POST(request: NextRequest) {
 
 ${prompt}
 
-Style: editorial photography, clean composition, soft natural lighting, shallow depth of field. No text, no watermarks, no logos, no borders. Avoid: blurry, distorted, cluttered backgrounds, artificial looking, stock photo feel.`
+CRITICAL: The image must contain ABSOLUTELY NO TEXT, NO LETTERS, NO WORDS, NO NUMBERS, NO CAPTIONS, NO WATERMARKS, NO LOGOS anywhere in the image. Pure visual content only.
+
+Style: editorial photography, clean composition, soft natural lighting, shallow depth of field, no borders. Avoid: blurry, distorted, cluttered backgrounds, artificial looking, stock photo feel, any written text.`
 
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-image-preview",

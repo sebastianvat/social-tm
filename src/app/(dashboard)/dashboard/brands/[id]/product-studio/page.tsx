@@ -329,21 +329,30 @@ export default function ProductStudioPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Product header */}
+              {/* Product header + original photo */}
               <div className="rounded-xl border border-zinc-200 bg-white p-5">
-                <div className="flex items-start gap-4">
-                  {selected.image_url ? (
-                    <img
-                      src={selected.image_url}
-                      alt=""
-                      className="h-24 w-24 cursor-pointer rounded-xl object-cover ring-1 ring-zinc-200 transition-transform hover:scale-105"
-                      onClick={() => setLightbox(selected.image_url)}
-                    />
-                  ) : (
-                    <div className="flex h-24 w-24 items-center justify-center rounded-xl bg-zinc-100">
-                      <Package className="h-8 w-8 text-zinc-300" />
-                    </div>
-                  )}
+                <div className="flex items-start gap-5">
+                  {/* Original photo - always visible */}
+                  <div className="flex-shrink-0">
+                    {originalImageUrl ? (
+                      <div className="relative">
+                        <img
+                          src={originalImageUrl}
+                          alt=""
+                          className="h-44 w-44 cursor-pointer rounded-xl object-cover ring-1 ring-zinc-200 transition-transform hover:scale-[1.02]"
+                          onClick={() => setLightbox(originalImageUrl)}
+                        />
+                        <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+                          Originala
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex h-44 w-44 items-center justify-center rounded-xl bg-zinc-100">
+                        <Package className="h-10 w-10 text-zinc-300" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Product info */}
                   <div className="min-w-0 flex-1">
                     <h2 className="text-lg font-semibold text-zinc-900">{selected.name}</h2>
                     {selected.category && (
@@ -364,13 +373,13 @@ export default function ProductStudioPage() {
                         <ExternalLink className="h-3 w-3" /> Vezi pe site
                       </a>
                     )}
+                    {selected.description && (
+                      <p className="mt-3 text-[13px] leading-relaxed text-zinc-500 line-clamp-4">
+                        {selected.description}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {selected.description && (
-                  <p className="mt-3 text-[13px] leading-relaxed text-zinc-600">
-                    {selected.description}
-                  </p>
-                )}
               </div>
 
               {/* Photo generation */}

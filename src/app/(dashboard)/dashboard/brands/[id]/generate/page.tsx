@@ -194,7 +194,18 @@ export default function GenerateCalendarPage() {
       }
 
       setCalendarId(data.calendarId)
-      pollCalendarStatus(data.calendarId)
+
+      if (data.status === "draft") {
+        const postsRes = await fetch(`/api/posts?calendarId=${data.calendarId}`)
+        const postsData = await postsRes.json()
+        setPosts(postsData.posts?.map((p: any) => ({ ...p, selected: true })) || [])
+        setStep("review")
+      } else if (data.status === "failed") {
+        setError(data.error || "Generarea a esuat. Incearca din nou.")
+        setStep("config")
+      } else {
+        pollCalendarStatus(data.calendarId)
+      }
     } catch (err: any) {
       setError(`Eroare conexiune: ${err?.message || "Network error"}. Verifica conexiunea si incearca din nou.`)
       setStep("config")

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import Anthropic from "@anthropic-ai/sdk"
@@ -80,7 +79,6 @@ export async function POST(request: NextRequest) {
     balance_after: newBalance,
   })
 
-  // Capture all data needed for background work
   const bgData = {
     calendarId: calendar.id,
     userId: user.id,
@@ -102,21 +100,36 @@ export async function POST(request: NextRequest) {
     platforms,
   }
 
-  // Background generation — runs after response is sent
-  after(async () => {
-    const db = createServiceClient()
-    try {
-      await generateCalendarContent(db, bgData)
-    } catch (error: any) {
-      console.error("Background generation failed:", error)
-      await db.from("content_calendars").update({ status: "failed" }).eq("id", bgData.calendarId)
-    }
-  })
+  // #region agent log
+  fetch('http://localhost:7242/ingest/634abb5f-2f5a-4519-b060-6a93159490ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6ef643'},body:JSON.stringify({sessionId:'6ef643',location:'calendar/route.ts:PRE_GENERATE',message:'Starting synchronous generation',data:{calendarId:calendar.id,brandId,month,year,postCount},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
-  return NextResponse.json({
-    calendarId: calendar.id,
-    status: "generating",
-  })
+  const db = createServiceClient()
+  try {
+    await generateCalendarContent(db, bgData)
+
+    // #region agent log
+    fetch('http://localhost:7242/ingest/634abb5f-2f5a-4519-b060-6a93159490ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6ef643'},body:JSON.stringify({sessionId:'6ef643',location:'calendar/route.ts:POST_GENERATE_SUCCESS',message:'Generation completed successfully',data:{calendarId:calendar.id},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    return NextResponse.json({
+      calendarId: calendar.id,
+      status: "draft",
+    })
+  } catch (error: any) {
+    console.error("Calendar generation failed:", error)
+    await db.from("content_calendars").update({ status: "failed" }).eq("id", bgData.calendarId)
+
+    // #region agent log
+    fetch('http://localhost:7242/ingest/634abb5f-2f5a-4519-b060-6a93159490ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6ef643'},body:JSON.stringify({sessionId:'6ef643',location:'calendar/route.ts:GENERATE_FAILED',message:'Generation failed',data:{calendarId:calendar.id,error:error?.message||String(error)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    return NextResponse.json({
+      calendarId: calendar.id,
+      status: "failed",
+      error: error?.message || "Eroare la generare",
+    }, { status: 500 })
+  }
 }
 
 async function generateCalendarContent(db: any, data: any) {

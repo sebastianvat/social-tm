@@ -1,36 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { GoogleGenAI, createPartFromUri } from "@google/genai"
 import { TOKEN_COSTS } from "@/lib/tokens"
 
-async function getRefImagePart(ai: GoogleGenAI, imageUrl: string) {
-  const imgResp = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) })
-  if (!imgResp.ok) return null
-
-  const ct = imgResp.headers.get("content-type") || "image/jpeg"
-  const mime = ct.split(";")[0]
-  const buf = await imgResp.arrayBuffer()
-
-  try {
-    const blob = new Blob([buf], { type: mime })
-    const uploaded = await ai.files.upload({ file: blob, config: { mimeType: mime } })
-    if (uploaded.uri) return createPartFromUri(uploaded.uri, uploaded.mimeType || mime)
-  } catch {}
-
-  if (buf.byteLength <= 2_000_000) {
-    return { inlineData: { mimeType: mime, data: Buffer.from(buf).toString("base64") } }
-  }
-
-  return null
-}
+const MOLTY_URL = process.env.SCRAPER_API_URL || "https://molty.transilvaniabusinesssuite.ro/scraper"
+const MOLTY_KEY = process.env.SCRAPER_API_KEY || "tbs-scraper-2026-secret"
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: "Neautorizat" }, { status: 401 })
-  }
+  if (!user) return NextResponse.json({ error: "Neautorizat" }, { status: 401 })
 
   const { postId, prompt } = await request.json()
 
@@ -40,10 +18,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY! })
-
-    let productContext = ""
-    let refImagePart: any = null
+    let productName = ""
+    let productDescription = ""
+    let productCategory = ""
+    let productImageUrl = ""
 
     if (postId) {
       const { data: post } = await supabase
@@ -54,54 +32,54 @@ export async function POST(request: NextRequest) {
 
       if (post?.products && typeof post.products === "object" && "name" in post.products) {
         const p = post.products as { name: string; description?: string; category?: string; price?: string; image_url?: string }
-        productContext = `\nPRODUCT: ${p.name}${p.category ? ` (${p.category})` : ""}${p.description ? `\n${p.description.slice(0, 200)}` : ""}\nCRITICAL: Reference photo attached. Keep EXACT same product colors, pattern, material, texture. Place in professional setting.\n`
-
-        if (p.image_url) {
-          try { refImagePart = await getRefImagePart(ai, p.image_url) } catch {}
-        }
+        productName = p.name
+        productDescription = p.description || ""
+        productCategory = p.category || ""
+        productImageUrl = p.image_url || ""
       }
     }
 
-    const enhancedPrompt = `Professional social media image, 1:1 square.
-${prompt}
-${productContext}
-Rules: NO text/watermarks/logos. Editorial photography, clean composition, soft natural lighting, shallow DOF.`
+    const fullPrompt = productName
+      ? `${prompt}\nProduct: ${productName}${productCategory ? ` (${productCategory})` : ""}${productDescription ? `\n${productDescription.slice(0, 200)}` : ""}`
+      : prompt
 
-    const contentsParts: any[] = [{ text: enhancedPrompt }]
-    if (refImagePart) {
-      contentsParts.push(refImagePart)
-    }
+    const baseUrl = MOLTY_URL.replace(/\/scraper\/?$/, "")
+    const genUrl = `${baseUrl}/scraper/generate-image`
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-image-preview",
-      contents: contentsParts,
+    const moltyResp = await fetch(genUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": MOLTY_KEY,
+      },
+      body: JSON.stringify({
+        product_name: productName || "Social media post",
+        product_description: fullPrompt,
+        product_category: productCategory,
+        product_image_url: productImageUrl,
+        style: "room",
+        google_ai_api_key: process.env.GOOGLE_AI_API_KEY!,
+      }),
     })
 
-    let b64Data: string | null = null
-    let mimeType = "image/png"
-
-    for (const part of response.candidates![0].content!.parts!) {
-      if (part.inlineData) {
-        b64Data = part.inlineData.data!
-        mimeType = part.inlineData.mimeType || "image/png"
-        break
-      }
+    if (!moltyResp.ok) {
+      const errData = await moltyResp.json().catch(() => ({ detail: "Eroare server generare" }))
+      return NextResponse.json({ error: errData.detail || "Eroare generare" }, { status: moltyResp.status })
     }
 
-    if (!b64Data) {
-      return NextResponse.json({ error: "Nu s-a generat imaginea" }, { status: 500 })
-    }
+    const data = await moltyResp.json()
+    const buffer = Buffer.from(data.image_base64, "base64")
+    const mimeType = data.mime_type || "image/png"
 
     const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png"
     const fileName = `${user.id}/${postId || crypto.randomUUID()}-${Date.now()}.${ext}`
-    const buffer = Buffer.from(b64Data, "base64")
 
     const { error: uploadError } = await supabase.storage
       .from("post-images")
       .upload(fileName, buffer, { contentType: mimeType, upsert: true })
 
     if (uploadError) {
-      return NextResponse.json({ error: "Eroare la salvarea imaginii" }, { status: 500 })
+      return NextResponse.json({ error: "Eroare upload: " + uploadError.message }, { status: 500 })
     }
 
     const { data: publicUrl } = supabase.storage.from("post-images").getPublicUrl(fileName)
@@ -128,6 +106,6 @@ Rules: NO text/watermarks/logos. Editorial photography, clean composition, soft 
 
     return NextResponse.json({ imageUrl })
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Eroare la generarea imaginii" }, { status: 500 })
+    return NextResponse.json({ error: error?.message || "Eroare generare" }, { status: 500 })
   }
 }

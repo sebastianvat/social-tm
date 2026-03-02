@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import {
   ArrowLeft, Camera, Wand2, Loader2, Package, Check,
@@ -37,6 +37,8 @@ const STYLES = [
 export default function ProductStudioPage() {
   const params = useParams()
   const brandId = params.id as string
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const activity = useActivity()
 
   const [products, setProducts] = useState<Product[]>([])
@@ -92,20 +94,31 @@ export default function ProductStudioPage() {
       const res = await fetch(`/api/products?brandId=${brandId}`)
       if (res.ok) {
         const data = await res.json()
-        setProducts(data.products || [])
+        const list = data.products || []
+        setProducts(list)
+
+        const pid = searchParams.get("product")
+        if (pid && list.length > 0) {
+          const found = list.find((p: Product) => p.id === pid)
+          if (found) selectProduct(found, false)
+        }
       }
       setLoading(false)
     }
     load()
   }, [brandId])
 
-  async function selectProduct(p: Product) {
+  async function selectProduct(p: Product, updateUrl = true) {
     setSelected(p)
     setOriginalImageUrl(p.image_url)
     setGeneratedPhotos([])
     setGeneratedDescs(null)
     setSavedDesc(null)
     setError("")
+
+    if (updateUrl) {
+      router.replace(`?product=${p.id}`, { scroll: false })
+    }
 
     try {
       const res = await fetch(`/api/products/${p.id}/studio-photos`)

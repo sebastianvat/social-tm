@@ -53,8 +53,38 @@ export default function ProductStudioPage() {
   const [savedDesc, setSavedDesc] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
+  const [rescraping, setRescraping] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [error, setError] = useState("")
+
+  async function rescrapeOriginal() {
+    if (!selected?.url) return
+    setRescraping(true)
+    setError("")
+    try {
+      const res = await fetch("/api/scrape/product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: selected.url }),
+      })
+      const data = await res.json()
+      if (res.ok && data.images?.length > 0) {
+        const newImg = data.images[0]
+        setOriginalImageUrl(newImg)
+        setSelected((prev) => prev ? { ...prev, image_url: newImg } : prev)
+        await fetch(`/api/products/${selected.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_url: newImg }),
+        })
+      } else {
+        setError("Nu s-a gasit poza pe site")
+      }
+    } catch {
+      setError("Eroare la scanarea site-ului")
+    }
+    setRescraping(false)
+  }
 
   useEffect(() => {
     async function load() {
@@ -362,6 +392,16 @@ export default function ProductStudioPage() {
                       <div className="flex h-44 w-44 items-center justify-center rounded-xl bg-zinc-100">
                         <Package className="h-10 w-10 text-zinc-300" />
                       </div>
+                    )}
+                    {selected.url && (
+                      <button
+                        onClick={rescrapeOriginal}
+                        disabled={rescraping}
+                        className="mt-2 inline-flex w-44 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-[11px] font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50"
+                      >
+                        {rescraping ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                        {rescraping ? "Se scaneaza..." : "Rescaneaza de pe site"}
+                      </button>
                     )}
                   </div>
                   {/* Product info */}

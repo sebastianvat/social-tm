@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Neautorizat" }, { status: 401 })
 
-  const { productId, productName, productDescription, productCategory, style = "editorial" } = await request.json()
+  const { productId, productName, productDescription, productCategory, productImageUrl, style = "editorial" } = await request.json()
 
   const { data: profile } = await supabase.from("profiles").select("tokens").eq("id", user.id).single()
   if (!profile || profile.tokens < TOKEN_COSTS.GENERATE_IMAGE) {
@@ -28,21 +28,43 @@ export async function POST(request: NextRequest) {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY! })
 
+    let refImageB64: string | null = null
+    let refImageMime = "image/jpeg"
+
+    if (productImageUrl) {
+      try {
+        const imgResp = await fetch(productImageUrl, { signal: AbortSignal.timeout(10000) })
+        if (imgResp.ok) {
+          const imgBuf = await imgResp.arrayBuffer()
+          refImageB64 = Buffer.from(imgBuf).toString("base64")
+          const ct = imgResp.headers.get("content-type") || "image/jpeg"
+          refImageMime = ct.split(";")[0]
+        }
+      } catch {}
+    }
+
     const prompt = `${stylePrompt}.
 
 SUBJECT: ${productName}
 ${productCategory ? `CATEGORY: ${productCategory}` : ""}
 ${productDescription ? `PRODUCT DETAILS: ${productDescription.slice(0, 400)}` : ""}
 
-Generate a HIGH QUALITY product photograph of this exact product. The product must be the clear MAIN SUBJECT of the image. Show the product's real characteristics: shape, color, material, texture, pattern, and details.
+${refImageB64 ? "CRITICAL: A reference photo of the ACTUAL product is attached. You MUST faithfully represent THIS EXACT product in the generated image — preserve the same colors, patterns, textures, shape, and material. Re-photograph this product in the specified style, do NOT create a different product." : "Generate a HIGH QUALITY product photograph of this exact product. The product must be the clear MAIN SUBJECT of the image. Show the product's real characteristics: shape, color, material, texture, pattern, and details."}
 
 Format: 1:1 square, high resolution.
 CRITICAL: ABSOLUTELY NO TEXT, NO LETTERS, NO WORDS, NO NUMBERS, NO WATERMARKS, NO LOGOS anywhere. Pure visual content only.
 NO blurry, NO distorted, NO artificial looking. Must look like a real professional photograph.`
 
+    const contentsParts: any[] = [{ text: prompt }]
+    if (refImageB64) {
+      contentsParts.push({
+        inlineData: { mimeType: refImageMime, data: refImageB64 },
+      })
+    }
+
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-image-preview",
-      contents: prompt,
+      contents: contentsParts,
     })
 
     let b64Data: string | null = null

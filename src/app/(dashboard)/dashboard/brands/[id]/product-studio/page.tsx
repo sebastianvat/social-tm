@@ -93,6 +93,7 @@ export default function ProductStudioPage() {
           productName: selected.name,
           productDescription: selected.description,
           productCategory: selected.category,
+          productImageUrl: originalImageUrl,
           style,
         }),
       })

@@ -39,51 +39,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const fullPrompt = productName
+    const fullDesc = productName
       ? `${prompt}\nProduct: ${productName}${productCategory ? ` (${productCategory})` : ""}${productDescription ? `\n${productDescription.slice(0, 200)}` : ""}`
       : prompt
 
     const baseUrl = MOLTY_URL.replace(/\/scraper\/?$/, "")
-    const genUrl = `${baseUrl}/scraper/generate-image`
 
-    const moltyResp = await fetch(genUrl, {
+    const moltyResp = await fetch(`${baseUrl}/scraper/generate-image`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": MOLTY_KEY,
-      },
+      headers: { "Content-Type": "application/json", "X-API-Key": MOLTY_KEY },
       body: JSON.stringify({
         product_name: productName || "Social media post",
-        product_description: fullPrompt,
+        product_description: fullDesc,
         product_category: productCategory,
         product_image_url: productImageUrl,
         style: "room",
         google_ai_api_key: process.env.GOOGLE_AI_API_KEY!,
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        supabase_service_key: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        storage_path: `${user.id}/${postId || crypto.randomUUID()}`,
       }),
     })
 
     if (!moltyResp.ok) {
-      const errData = await moltyResp.json().catch(() => ({ detail: "Eroare server generare" }))
-      return NextResponse.json({ error: errData.detail || "Eroare generare" }, { status: moltyResp.status })
+      const err = await moltyResp.json().catch(() => ({ detail: "Eroare generare" }))
+      return NextResponse.json({ error: err.detail || "Eroare generare" }, { status: moltyResp.status })
     }
 
     const data = await moltyResp.json()
-    const buffer = Buffer.from(data.image_base64, "base64")
-    const mimeType = data.mime_type || "image/png"
-
-    const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png"
-    const fileName = `${user.id}/${postId || crypto.randomUUID()}-${Date.now()}.${ext}`
-
-    const { error: uploadError } = await supabase.storage
-      .from("post-images")
-      .upload(fileName, buffer, { contentType: mimeType, upsert: true })
-
-    if (uploadError) {
-      return NextResponse.json({ error: "Eroare upload: " + uploadError.message }, { status: 500 })
-    }
-
-    const { data: publicUrl } = supabase.storage.from("post-images").getPublicUrl(fileName)
-    const imageUrl = publicUrl.publicUrl
+    const imageUrl = data.image_url
 
     if (postId) {
       await supabase.from("posts").update({

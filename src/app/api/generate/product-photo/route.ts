@@ -19,14 +19,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const baseUrl = MOLTY_URL.replace(/\/scraper\/?$/, "")
-    const genUrl = `${baseUrl}/scraper/generate-image`
 
-    const moltyResp = await fetch(genUrl, {
+    const moltyResp = await fetch(`${baseUrl}/scraper/generate-image`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": MOLTY_KEY,
-      },
+      headers: { "Content-Type": "application/json", "X-API-Key": MOLTY_KEY },
       body: JSON.stringify({
         product_name: productName,
         product_description: productDescription || "",
@@ -34,30 +30,18 @@ export async function POST(request: NextRequest) {
         product_image_url: productImageUrl || "",
         style,
         google_ai_api_key: process.env.GOOGLE_AI_API_KEY!,
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        supabase_service_key: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        storage_path: `${user.id}/product-studio/${productId || crypto.randomUUID()}`,
       }),
     })
 
     if (!moltyResp.ok) {
-      const errData = await moltyResp.json().catch(() => ({ detail: "Eroare server generare" }))
-      return NextResponse.json({ error: errData.detail || "Eroare generare" }, { status: moltyResp.status })
+      const err = await moltyResp.json().catch(() => ({ detail: "Eroare generare" }))
+      return NextResponse.json({ error: err.detail || "Eroare generare" }, { status: moltyResp.status })
     }
 
     const data = await moltyResp.json()
-    const buffer = Buffer.from(data.image_base64, "base64")
-    const mimeType = data.mime_type || "image/png"
-
-    const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png"
-    const fileName = `${user.id}/product-studio/${productId || crypto.randomUUID()}-${style}-${Date.now()}.${ext}`
-
-    const { error: uploadError } = await supabase.storage
-      .from("post-images")
-      .upload(fileName, buffer, { contentType: mimeType, upsert: true })
-
-    if (uploadError) {
-      return NextResponse.json({ error: "Eroare upload: " + uploadError.message }, { status: 500 })
-    }
-
-    const { data: publicUrl } = supabase.storage.from("post-images").getPublicUrl(fileName)
 
     const newBalance = profile.tokens - TOKEN_COSTS.GENERATE_IMAGE
     await supabase.from("profiles").update({ tokens: newBalance }).eq("id", user.id)
@@ -70,7 +54,7 @@ export async function POST(request: NextRequest) {
       balance_after: newBalance,
     })
 
-    return NextResponse.json({ imageUrl: publicUrl.publicUrl, style })
+    return NextResponse.json({ imageUrl: data.image_url, style: data.style })
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Eroare generare" }, { status: 500 })
   }

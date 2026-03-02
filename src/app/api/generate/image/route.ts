@@ -21,10 +21,24 @@ export async function POST(request: NextRequest) {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY! })
 
+    let productContext = ""
+    if (postId) {
+      const { data: post } = await supabase
+        .from("posts")
+        .select("product_id, products:product_id(name, description, category, price)")
+        .eq("id", postId)
+        .single()
+
+      if (post?.products && typeof post.products === "object" && "name" in post.products) {
+        const p = post.products as { name: string; description?: string; category?: string; price?: string }
+        productContext = `\nPRODUCT CONTEXT (the image MUST visually represent this specific product):\n- Product: ${p.name}\n${p.category ? `- Category: ${p.category}\n` : ""}${p.description ? `- Details: ${p.description.slice(0, 200)}\n` : ""}The product must be the MAIN SUBJECT of the image. Show the actual product clearly.\n`
+      }
+    }
+
     const enhancedPrompt = `Professional social media image, 1:1 square format.
 
 ${prompt}
-
+${productContext}
 CRITICAL: The image must contain ABSOLUTELY NO TEXT, NO LETTERS, NO WORDS, NO NUMBERS, NO CAPTIONS, NO WATERMARKS, NO LOGOS anywhere in the image. Pure visual content only.
 
 Style: editorial photography, clean composition, soft natural lighting, shallow depth of field, no borders. Avoid: blurry, distorted, cluttered backgrounds, artificial looking, stock photo feel, any written text.`

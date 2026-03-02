@@ -126,7 +126,14 @@ async function generateCalendarContent(db: any, data: any) {
   const months = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"]
   const daysInMonth = new Date(data.year, data.month, 0).getDate()
 
-  const productsList = data.products.map((p: any, i: number) => `[P${i}] ${p.name}${p.price ? ` — ${p.price}` : ""}${p.category ? ` [${p.category}]` : ""}${p.description ? ` | ${p.description.slice(0, 120)}` : ""}`).join("\n") || "Niciun produs selectat."
+  const productsList = data.products.map((p: any, i: number) => {
+    const parts = [`[P${i}] ${p.name}`]
+    if (p.price) parts.push(`Pret: ${p.price}`)
+    if (p.category) parts.push(`Categorie: ${p.category}`)
+    if (p.description) parts.push(`Descriere: ${p.description.slice(0, 250)}`)
+    if (p.image_url) parts.push(`(are imagine de referinta)`)
+    return parts.join(" | ")
+  }).join("\n") || "Niciun produs selectat."
 
   const platformRules: Record<string, string> = {
     instagram: "Instagram: Hook puternic in primele 125 chars (vizibile inainte de 'more'). 400-800 chars total. CTA intrebare la final. Emoji moderat (1-3). Hashtag-uri SEPARATE (nu in corp). Ton conversational.",
@@ -178,8 +185,15 @@ Distribuie egal pe ${daysInMonth} zile. Alterna tipurile — NICIODATA 2 postari
 image_prompt TREBUIE sa fie in ENGLEZA si sa urmeze acest format:
 "[Photography/illustration style], [subject description with specific details], [composition and framing], [lighting and mood], [color palette], [brand elements if relevant]. High quality, commercial grade."
 
-Exemplu BUN: "Flat lay product photography, artisan coffee beans in a ceramic bowl on a marble countertop, warm morning sunlight from left, soft shadows, earth tones with cream and dark brown, minimalist composition, no text. High quality, 4K."
+REGULA CRITICA PRODUS-IMAGINE:
+- Daca postarea are product_index (e legata de un produs), image_prompt TREBUIE sa descrie vizual acel produs specific!
+- Include: tipul produsului, culoarea, materialul, textura, forma — tot ce face produsul recognoscibil
+- Exemplu pentru "Perdea alba 3D cu model bordo": "Interior photography, elegant white 3D curtain with burgundy pattern hanging in a modern living room, natural daylight from window, soft fabric texture detail, warm neutral tones with white and burgundy accents, lifestyle home decor composition, no text. High quality, commercial grade."
+- NU genera imagini generice de "lifestyle" cand ai un produs specific — imaginea trebuie sa ARATE produsul!
+
+Exemplu BUN generic (fara produs): "Flat lay product photography, artisan coffee beans in a ceramic bowl on a marble countertop, warm morning sunlight from left, soft shadows, earth tones with cream and dark brown, minimalist composition, no text. High quality, 4K."
 Exemplu RAU: "A nice picture of coffee" (PREA VAGA)
+Exemplu RAU: "Cozy living room" cand produsul e o perdea specifica (PREA GENERIC — trebuie sa apara PERDEA in imagine!)
 
 ═══ EXEMPLU OUTPUT (1 postare) ═══
 {"day":3,"content":"Stiai ca 73% dintre romani isi incep dimineata fara un ritual? ☕ Noi credem ca o cafea buna nu e un lux — e un act de self-care. Iar [Produs] transforma fiecare dimineata intr-un moment doar al tau. Ce ritual ai tu dimineata? Spune-ne in comentarii 👇","hashtags":["#RitualDeDimineata","#CafeaSpeciala","#SelfCare","#${data.brandName.replace(/\s+/g, "")}","#MomentulTau"],"post_type":"engagement","platform":"instagram","image_prompt":"Overhead flat lay photography, steaming artisan coffee in handmade ceramic mug on wooden table, fresh pastry and open book beside it, warm golden morning light streaming from window, cozy earth tones with cream and amber, lifestyle composition, no text overlay. High quality, commercial photography.","best_time":"08:30","product_index":0}

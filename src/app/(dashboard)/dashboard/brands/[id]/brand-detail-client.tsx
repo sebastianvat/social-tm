@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Package, Calendar, Sparkles, ExternalLink, Coins, Globe, Plus,
-  Search, RefreshCw, Loader2, Trash2, Image as ImageIcon, Link2, X,
+  Search, RefreshCw, Loader2, Trash2, Image as ImageIcon, Link2, X, Camera,
 } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
 import { DeleteBrandButton } from "./delete-brand-button"
@@ -250,15 +250,26 @@ export function BrandDetailClient({
             {scanSuccess && <p className="mt-2 text-[12px] text-green-600">{scanSuccess}</p>}
           </div>
 
-          {/* Quick rescan original URL */}
-          <button
-            onClick={() => handleRescan(brand.url)}
-            disabled={scanning}
-            className="mb-4 inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-[11px] font-medium text-zinc-500 hover:bg-zinc-50 disabled:opacity-40"
-          >
-            <RefreshCw className={`h-3 w-3 ${scanning ? "animate-spin" : ""}`} />
-            Rescaneaza {brand.url.replace(/^https?:\/\//, "")}
-          </button>
+          {/* Actions row */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handleRescan(brand.url)}
+              disabled={scanning}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-[11px] font-medium text-zinc-500 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              <RefreshCw className={`h-3 w-3 ${scanning ? "animate-spin" : ""}`} />
+              Rescaneaza {brand.url.replace(/^https?:\/\//, "")}
+            </button>
+            {products.length > 0 && (
+              <Link
+                href={`/dashboard/brands/${brand.id}/product-studio`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-orange-500 px-3 text-[11px] font-medium text-white hover:bg-orange-600"
+              >
+                <Camera className="h-3 w-3" />
+                Product Studio — Regenereaza Poze
+              </Link>
+            )}
+          </div>
 
           {/* Search */}
           {products.length > 5 && (

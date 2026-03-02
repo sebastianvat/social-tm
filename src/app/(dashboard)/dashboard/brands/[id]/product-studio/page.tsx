@@ -28,11 +28,10 @@ type GeneratedDesc = {
 }
 
 const STYLES = [
-  { id: "editorial", label: "Editorial", desc: "In context real, lumina naturala" },
-  { id: "lifestyle", label: "Lifestyle", desc: "In interior, atmosfera calda" },
-  { id: "flatlay", label: "Flat Lay", desc: "Vedere de sus, aranjat" },
-  { id: "white", label: "Fundal Alb", desc: "Studio, e-commerce" },
-  { id: "artistic", label: "Artistic", desc: "Dramatic, cinematografic" },
+  { id: "room", label: "In Camera", desc: "Produs montat in camera reala" },
+  { id: "closeup", label: "Detaliu", desc: "Close-up pe textura si material" },
+  { id: "styled", label: "Scena Stilizata", desc: "Cu accesorii decorative" },
+  { id: "white", label: "Fundal Alb", desc: "Studio, e-commerce curat" },
 ]
 
 export default function ProductStudioPage() {
@@ -136,7 +135,7 @@ export default function ProductStudioPage() {
 
   async function generateAllStyles() {
     if (!selected) return
-    const stylesToGen = ["editorial", "lifestyle", "flatlay", "white"]
+    const stylesToGen = ["room", "closeup", "styled", "white"]
     setGeneratingAll(true)
     setAllProgress({ done: 0, total: stylesToGen.length })
     setError("")
@@ -389,7 +388,7 @@ export default function ProductStudioPage() {
                 </h3>
 
                 <p className="mb-3 text-[12px] text-zinc-500">Alege stilul fotografiei:</p>
-                <div className="mb-4 grid grid-cols-5 gap-2">
+                <div className="mb-4 grid grid-cols-4 gap-2">
                   {STYLES.map((s) => (
                     <button
                       key={s.id}

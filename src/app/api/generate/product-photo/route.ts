@@ -16,11 +16,10 @@ export async function POST(request: NextRequest) {
   }
 
   const styleInstructions: Record<string, string> = {
-    editorial: "Editorial product photography, styled in a real-life setting with complementary props, warm natural lighting from a window, shallow depth of field with product in sharp focus, lifestyle context",
-    lifestyle: "Lifestyle product photography, product being used or displayed in a beautiful home interior, natural daylight, warm and inviting atmosphere, aspirational setting",
-    flatlay: "Flat lay product photography, bird's eye view on a clean surface, carefully arranged with minimal complementary objects, even soft lighting, organized aesthetic",
-    white: "Clean product photography on pure white background, studio lighting, product centered and fully visible, crisp shadows, e-commerce style, professional product shot",
-    artistic: "Artistic product photography, creative angles and dramatic lighting, moody atmosphere with rich colors, cinematic feel, high-end brand aesthetic",
+    room: "Professional interior photography. The product is INSTALLED/MOUNTED/PLACED in a real room. For curtains/drapes: hung on a rod in front of a window in an elegant room with white or beige walls, natural daylight filtering through. For furniture: placed in a well-decorated living room. For textiles: draped or displayed in an actual home setting. The room is clean, modern, aspirational. Shallow depth of field, product in sharp focus. Camera angle: slightly below eye level, showing the full product in its environment",
+    closeup: "Macro/close-up product photography. Extreme detail shot focusing on the texture, weave pattern, material quality, and craftsmanship of the product. For fabrics: show the thread detail, sheen, drape quality. Soft directional lighting that reveals surface texture. Very shallow depth of field. Fill the frame with the product material. Shot on a 100mm macro lens aesthetic",
+    styled: "Styled product scene photography. The product is the hero, surrounded by carefully chosen decorative accessories (ceramic vases, plants, books, candles) that complement but don't compete. For curtains: partially visible with styling elements in foreground. Warm, inviting atmosphere. Natural window light. Interior design magazine aesthetic. The styling should suggest a curated, aspirational lifestyle",
+    white: "Clean e-commerce product photography on pure white seamless background. Studio strobe lighting, product centered and fully visible with crisp clean shadows. For fabrics/curtains: neatly arranged to show the full pattern and drape. No props, no distractions. Professional packshot style, suitable for online store product listing page",
   }
 
   const stylePrompt = styleInstructions[style] || styleInstructions.editorial
@@ -45,15 +44,22 @@ export async function POST(request: NextRequest) {
 
     const prompt = `${stylePrompt}.
 
-SUBJECT: ${productName}
-${productCategory ? `CATEGORY: ${productCategory}` : ""}
-${productDescription ? `PRODUCT DETAILS: ${productDescription.slice(0, 400)}` : ""}
+PRODUCT: ${productName}
+${productCategory ? `TYPE: ${productCategory}` : ""}
+${productDescription ? `DETAILS: ${productDescription.slice(0, 500)}` : ""}
 
-${refImageB64 ? "CRITICAL: A reference photo of the ACTUAL product is attached. You MUST faithfully represent THIS EXACT product in the generated image — preserve the same colors, patterns, textures, shape, and material. Re-photograph this product in the specified style, do NOT create a different product." : "Generate a HIGH QUALITY product photograph of this exact product. The product must be the clear MAIN SUBJECT of the image. Show the product's real characteristics: shape, color, material, texture, pattern, and details."}
+${refImageB64 ? `CRITICAL REQUIREMENT: A reference photo of the ACTUAL product is attached. You MUST:
+1. Keep the EXACT same product — same color, same pattern, same material, same texture
+2. Re-create this product in the specified photography style
+3. The product in your image must be RECOGNIZABLY the same item as in the reference
+4. DO NOT change the product's color palette, pattern, or material type
+5. Only change the CONTEXT/SETTING around the product, never the product itself` : `Generate a HIGH QUALITY product photograph. The product must be the clear MAIN SUBJECT. Show realistic characteristics: shape, color, material, texture, pattern.`}
 
-Format: 1:1 square, high resolution.
-CRITICAL: ABSOLUTELY NO TEXT, NO LETTERS, NO WORDS, NO NUMBERS, NO WATERMARKS, NO LOGOS anywhere. Pure visual content only.
-NO blurry, NO distorted, NO artificial looking. Must look like a real professional photograph.`
+OUTPUT RULES:
+- Format: 1:1 square, high resolution, professional photography quality
+- ZERO text, letters, words, numbers, watermarks, logos — pure visual only
+- Must look like a REAL photograph taken by a professional photographer
+- Natural, realistic lighting — not CGI or artificial looking`
 
     const contentsParts: any[] = [{ text: prompt }]
     if (refImageB64) {

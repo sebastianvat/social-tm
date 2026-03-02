@@ -6,6 +6,7 @@ import Link from "next/link"
 import {
   ArrowLeft, Camera, Wand2, Loader2, Package, Check,
   FileText, Download, ExternalLink, X, Sparkles, RefreshCw, Trash2, Undo2,
+  Copy, Pencil, Layers,
 } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
 import { useActivity } from "@/components/activity-provider"
@@ -51,6 +52,7 @@ export default function ProductStudioPage() {
   const [generatingDesc, setGeneratingDesc] = useState(false)
   const [generatedDescs, setGeneratedDescs] = useState<GeneratedDesc | null>(null)
   const [savedDesc, setSavedDesc] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
 
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [error, setError] = useState("")
@@ -127,6 +129,62 @@ export default function ProductStudioPage() {
         }).catch(() => {})
       }
     }
+  }
+
+  const [generatingAll, setGeneratingAll] = useState(false)
+  const [allProgress, setAllProgress] = useState({ done: 0, total: 0 })
+
+  async function generateAllStyles() {
+    if (!selected) return
+    const stylesToGen = ["editorial", "lifestyle", "flatlay", "white"]
+    setGeneratingAll(true)
+    setAllProgress({ done: 0, total: stylesToGen.length })
+    setError("")
+
+    for (const s of stylesToGen) {
+      const actId = `studio-all-${selected.id}-${s}-${Date.now()}`
+      activity.addActivity({ id: actId, type: "image", label: `${selected.name.slice(0, 20)}: ${s}`, href: `/dashboard/brands/${brandId}/product-studio` })
+
+      try {
+        const res = await fetch("/api/generate/product-photo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: selected.id,
+            productName: selected.name,
+            productDescription: selected.description,
+            productCategory: selected.category,
+            productImageUrl: originalImageUrl,
+            style: s,
+          }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          setGeneratedPhotos((prev) => [...prev, { url: data.imageUrl, style: s }])
+          activity.updateActivity(actId, "done")
+        } else {
+          activity.updateActivity(actId, "error")
+        }
+      } catch {
+        activity.updateActivity(actId, "error")
+      }
+      setAllProgress((prev) => ({ ...prev, done: prev.done + 1 }))
+    }
+    setGeneratingAll(false)
+  }
+
+  async function downloadPhoto(url: string, styleName: string) {
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const a = document.createElement("a")
+      a.href = URL.createObjectURL(blob)
+      a.download = `${selected?.name?.replace(/[^a-zA-Z0-9]/g, "-") || "product"}-${styleName}-${Date.now()}.jpg`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(a.href)
+    } catch {}
   }
 
   async function revertToOriginal() {
@@ -341,18 +399,37 @@ export default function ProductStudioPage() {
                   ))}
                 </div>
 
-                <button
-                  onClick={generatePhoto}
-                  disabled={generatingPhoto}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-900 px-5 text-[13px] font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-                >
-                  {generatingPhoto ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Wand2 className="h-4 w-4" />
-                  )}
-                  {generatingPhoto ? "Se genereaza..." : `Genereaza fotografie (${TOKEN_COSTS.GENERATE_IMAGE} tokeni)`}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={generatePhoto}
+                    disabled={generatingPhoto || generatingAll}
+                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-900 px-5 text-[13px] font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+                  >
+                    {generatingPhoto ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-4 w-4" />
+                    )}
+                    {generatingPhoto ? "Se genereaza..." : `Genereaza 1 fotografie (${TOKEN_COSTS.GENERATE_IMAGE} tok)`}
+                  </button>
+                  <button
+                    onClick={generateAllStyles}
+                    disabled={generatingPhoto || generatingAll}
+                    className="inline-flex h-10 items-center gap-2 rounded-lg border-2 border-zinc-900 bg-white px-5 text-[13px] font-medium text-zinc-900 hover:bg-zinc-50 disabled:opacity-50"
+                  >
+                    {generatingAll ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {allProgress.done}/{allProgress.total}
+                      </>
+                    ) : (
+                      <>
+                        <Layers className="h-4 w-4" />
+                        Genereaza toate 4 stilurile ({TOKEN_COSTS.GENERATE_IMAGE * 4} tok)
+                      </>
+                    )}
+                  </button>
+                </div>
 
                 {generatedPhotos.length > 0 && (
                   <div className="mt-4">
@@ -370,25 +447,34 @@ export default function ProductStudioPage() {
                         </button>
                       )}
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       {generatedPhotos.map((photo, i) => (
                         <div key={i} className="group relative">
                           <img
                             src={photo.url}
                             alt=""
-                            className="h-40 w-full cursor-pointer rounded-xl object-cover ring-1 ring-zinc-200 transition-transform hover:scale-[1.02]"
+                            className="h-52 w-full cursor-pointer rounded-xl object-cover ring-1 ring-zinc-200 transition-transform hover:scale-[1.01]"
                             onClick={() => setLightbox(photo.url)}
                           />
                           <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
                             {STYLES.find((s) => s.id === photo.style)?.label || photo.style}
                           </span>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); discardPhoto(photo.url) }}
-                            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-500/80 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-600"
-                            title="Sterge aceasta varianta"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); downloadPhoto(photo.url, photo.style) }}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow hover:bg-white"
+                              title="Descarca"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); discardPhoto(photo.url) }}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/80 text-white hover:bg-red-600"
+                              title="Sterge"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -439,28 +525,48 @@ export default function ProductStudioPage() {
                             <span className="text-[12px] font-medium text-zinc-500">
                               {labels[variant]}
                             </span>
-                            <button
-                              onClick={() => saveDescription(variant)}
-                              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                                savedDesc === variant
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-white text-zinc-600 hover:bg-zinc-100"
-                              }`}
-                            >
-                              {savedDesc === variant ? (
-                                <>
-                                  <Check className="h-3 w-3" /> Salvat
-                                </>
-                              ) : (
-                                <>
-                                  <Download className="h-3 w-3" /> Salveaza pe produs
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(generatedDescs[variant] || "")
+                                  setCopied(variant)
+                                  setTimeout(() => setCopied(null), 2000)
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+                                title="Copiaza in clipboard"
+                              >
+                                {copied === variant ? (
+                                  <><Check className="h-3 w-3 text-green-600" /> Copiat!</>
+                                ) : (
+                                  <><Copy className="h-3 w-3" /> Copiaza</>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => saveDescription(variant)}
+                                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                                  savedDesc === variant
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-white text-zinc-600 hover:bg-zinc-100"
+                                }`}
+                              >
+                                {savedDesc === variant ? (
+                                  <><Check className="h-3 w-3" /> Salvat</>
+                                ) : (
+                                  <><Download className="h-3 w-3" /> Salveaza pe produs</>
+                                )}
+                              </button>
+                            </div>
                           </div>
-                          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-zinc-700">
-                            {text}
-                          </p>
+                          <textarea
+                            value={generatedDescs[variant] || ""}
+                            onChange={(e) =>
+                              setGeneratedDescs((prev) =>
+                                prev ? { ...prev, [variant]: e.target.value } : prev
+                              )
+                            }
+                            rows={variant === "seo" ? 5 : variant === "medium" ? 4 : 3}
+                            className="w-full resize-y rounded-lg border border-zinc-200 bg-white px-3 py-2 text-[13px] leading-relaxed text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-300"
+                          />
                         </div>
                       )
                     })}

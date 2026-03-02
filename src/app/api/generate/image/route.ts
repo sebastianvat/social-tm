@@ -21,19 +21,11 @@ export async function POST(request: NextRequest) {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY! })
 
-    const enhancedPrompt = `Generate a high-quality social media image based on the following description. The image must be visually striking, professional, and suitable for commercial social media use.
+    const enhancedPrompt = `Professional social media image, 1:1 square format.
 
-STYLE REQUIREMENTS:
-- Clean, modern aesthetic
-- No text, watermarks, or logos unless explicitly requested
-- Professional lighting and composition
-- Commercial-grade quality, suitable for brand social media
-- Aspect ratio: 1:1 (square, optimized for Instagram/Facebook feed)
-
-IMAGE DESCRIPTION:
 ${prompt}
 
-QUALITY: Ultra high quality, sharp focus, vibrant colors, professional photography or illustration style.`
+Style: editorial photography, clean composition, soft natural lighting, shallow depth of field. No text, no watermarks, no logos, no borders. Avoid: blurry, distorted, cluttered backgrounds, artificial looking, stock photo feel.`
 
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-image-preview",

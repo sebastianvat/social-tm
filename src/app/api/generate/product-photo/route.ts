@@ -3,6 +3,27 @@ import { createClient } from "@/lib/supabase/server"
 import { GoogleGenAI, createPartFromUri } from "@google/genai"
 import { TOKEN_COSTS } from "@/lib/tokens"
 
+async function getRefImagePart(ai: GoogleGenAI, imageUrl: string) {
+  const imgResp = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) })
+  if (!imgResp.ok) return null
+
+  const ct = imgResp.headers.get("content-type") || "image/jpeg"
+  const mime = ct.split(";")[0]
+  const buf = await imgResp.arrayBuffer()
+
+  try {
+    const blob = new Blob([buf], { type: mime })
+    const uploaded = await ai.files.upload({ file: blob, config: { mimeType: mime } })
+    if (uploaded.uri) return createPartFromUri(uploaded.uri, uploaded.mimeType || mime)
+  } catch {}
+
+  if (buf.byteLength <= 2_000_000) {
+    return { inlineData: { mimeType: mime, data: Buffer.from(buf).toString("base64") } }
+  }
+
+  return null
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -28,37 +49,19 @@ export async function POST(request: NextRequest) {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY! })
 
     let refImagePart: any = null
-
     if (productImageUrl) {
-      try {
-        const imgResp = await fetch(productImageUrl, { signal: AbortSignal.timeout(8000) })
-        if (imgResp.ok) {
-          const ct = imgResp.headers.get("content-type") || "image/jpeg"
-          const mime = ct.split(";")[0]
-          const blob = await imgResp.blob()
-
-          const uploaded = await ai.files.upload({
-            file: blob,
-            config: { mimeType: mime },
-          })
-
-          if (uploaded.uri) {
-            refImagePart = createPartFromUri(uploaded.uri, uploaded.mimeType || mime)
-          }
-        }
-      } catch {}
+      try { refImagePart = await getRefImagePart(ai, productImageUrl) } catch {}
     }
 
+    const hasRef = !!refImagePart
     const prompt = `${stylePrompt}
 Product: ${productName}${productCategory ? ` (${productCategory})` : ""}
 ${productDescription ? productDescription.slice(0, 250) : ""}
-${refImagePart ? "CRITICAL: Reference photo attached. Keep EXACT same product colors, pattern, material, texture. Only change the setting/context." : "Show realistic product characteristics."}
+${hasRef ? "CRITICAL: Reference photo attached. Keep EXACT same product colors, pattern, material, texture. Only change the setting/context." : "Show realistic product characteristics."}
 Rules: 1:1 square, NO text/watermarks/logos, professional photography, natural lighting.`
 
     const contentsParts: any[] = [{ text: prompt }]
-    if (refImagePart) {
-      contentsParts.push(refImagePart)
-    }
+    if (refImagePart) contentsParts.push(refImagePart)
 
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-image-preview",

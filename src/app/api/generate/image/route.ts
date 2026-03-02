@@ -3,6 +3,27 @@ import { createClient } from "@/lib/supabase/server"
 import { GoogleGenAI, createPartFromUri } from "@google/genai"
 import { TOKEN_COSTS } from "@/lib/tokens"
 
+async function getRefImagePart(ai: GoogleGenAI, imageUrl: string) {
+  const imgResp = await fetch(imageUrl, { signal: AbortSignal.timeout(8000) })
+  if (!imgResp.ok) return null
+
+  const ct = imgResp.headers.get("content-type") || "image/jpeg"
+  const mime = ct.split(";")[0]
+  const buf = await imgResp.arrayBuffer()
+
+  try {
+    const blob = new Blob([buf], { type: mime })
+    const uploaded = await ai.files.upload({ file: blob, config: { mimeType: mime } })
+    if (uploaded.uri) return createPartFromUri(uploaded.uri, uploaded.mimeType || mime)
+  } catch {}
+
+  if (buf.byteLength <= 2_000_000) {
+    return { inlineData: { mimeType: mime, data: Buffer.from(buf).toString("base64") } }
+  }
+
+  return null
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -36,23 +57,7 @@ export async function POST(request: NextRequest) {
         productContext = `\nPRODUCT: ${p.name}${p.category ? ` (${p.category})` : ""}${p.description ? `\n${p.description.slice(0, 200)}` : ""}\nCRITICAL: Reference photo attached. Keep EXACT same product colors, pattern, material, texture. Place in professional setting.\n`
 
         if (p.image_url) {
-          try {
-            const imgResp = await fetch(p.image_url, { signal: AbortSignal.timeout(8000) })
-            if (imgResp.ok) {
-              const ct = imgResp.headers.get("content-type") || "image/jpeg"
-              const mime = ct.split(";")[0]
-              const blob = await imgResp.blob()
-
-              const uploaded = await ai.files.upload({
-                file: blob,
-                config: { mimeType: mime },
-              })
-
-              if (uploaded.uri) {
-                refImagePart = createPartFromUri(uploaded.uri, uploaded.mimeType || mime)
-              }
-            }
-          } catch {}
+          try { refImagePart = await getRefImagePart(ai, p.image_url) } catch {}
         }
       }
     }

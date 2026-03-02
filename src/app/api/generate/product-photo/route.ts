@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { GoogleGenAI } from "@google/genai"
+import { GoogleGenAI, createPartFromUri } from "@google/genai"
 import { TOKEN_COSTS } from "@/lib/tokens"
 
 export async function POST(request: NextRequest) {
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Neautorizat" }, { status: 401 })
 
-  const { productId, productName, productDescription, productCategory, productImageUrl, style = "editorial" } = await request.json()
+  const { productId, productName, productDescription, productCategory, productImageUrl, style = "room" } = await request.json()
 
   const { data: profile } = await supabase.from("profiles").select("tokens").eq("id", user.id).single()
   if (!profile || profile.tokens < TOKEN_COSTS.GENERATE_IMAGE) {
@@ -16,56 +16,48 @@ export async function POST(request: NextRequest) {
   }
 
   const styleInstructions: Record<string, string> = {
-    room: "Professional interior photography. The product is INSTALLED/MOUNTED/PLACED in a real room. For curtains/drapes: hung on a rod in front of a window in an elegant room with white or beige walls, natural daylight filtering through. For furniture: placed in a well-decorated living room. For textiles: draped or displayed in an actual home setting. The room is clean, modern, aspirational. Shallow depth of field, product in sharp focus. Camera angle: slightly below eye level, showing the full product in its environment",
-    closeup: "Macro/close-up product photography. Extreme detail shot focusing on the texture, weave pattern, material quality, and craftsmanship of the product. For fabrics: show the thread detail, sheen, drape quality. Soft directional lighting that reveals surface texture. Very shallow depth of field. Fill the frame with the product material. Shot on a 100mm macro lens aesthetic",
-    styled: "Styled product scene photography. The product is the hero, surrounded by carefully chosen decorative accessories (ceramic vases, plants, books, candles) that complement but don't compete. For curtains: partially visible with styling elements in foreground. Warm, inviting atmosphere. Natural window light. Interior design magazine aesthetic. The styling should suggest a curated, aspirational lifestyle",
-    white: "Clean e-commerce product photography on pure white seamless background. Studio strobe lighting, product centered and fully visible with crisp clean shadows. For fabrics/curtains: neatly arranged to show the full pattern and drape. No props, no distractions. Professional packshot style, suitable for online store product listing page",
+    room: "Product installed in a real room. Curtains: hung on rod, window, white/beige walls, natural daylight. Furniture: in decorated living room. Clean, modern, aspirational. Shallow DOF, product sharp.",
+    closeup: "Macro close-up on texture, weave, material quality, craftsmanship. Soft directional light reveals surface. Very shallow DOF. Fill frame with material detail.",
+    styled: "Product as hero with decorative accessories (vases, plants, candles). Warm atmosphere, natural window light. Interior design magazine aesthetic.",
+    white: "Pure white background, studio lighting, product centered, crisp shadows. E-commerce packshot style. No props, no distractions.",
   }
 
-  const stylePrompt = styleInstructions[style] || styleInstructions.editorial
+  const stylePrompt = styleInstructions[style] || styleInstructions.room
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY! })
 
-    let refImageB64: string | null = null
-    let refImageMime = "image/jpeg"
+    let refImagePart: any = null
 
     if (productImageUrl) {
       try {
-        const imgResp = await fetch(productImageUrl, { signal: AbortSignal.timeout(10000) })
+        const imgResp = await fetch(productImageUrl, { signal: AbortSignal.timeout(8000) })
         if (imgResp.ok) {
-          const imgBuf = await imgResp.arrayBuffer()
-          refImageB64 = Buffer.from(imgBuf).toString("base64")
           const ct = imgResp.headers.get("content-type") || "image/jpeg"
-          refImageMime = ct.split(";")[0]
+          const mime = ct.split(";")[0]
+          const blob = await imgResp.blob()
+
+          const uploaded = await ai.files.upload({
+            file: blob,
+            config: { mimeType: mime },
+          })
+
+          if (uploaded.uri) {
+            refImagePart = createPartFromUri(uploaded.uri, uploaded.mimeType || mime)
+          }
         }
       } catch {}
     }
 
-    const prompt = `${stylePrompt}.
-
-PRODUCT: ${productName}
-${productCategory ? `TYPE: ${productCategory}` : ""}
-${productDescription ? `DETAILS: ${productDescription.slice(0, 500)}` : ""}
-
-${refImageB64 ? `CRITICAL REQUIREMENT: A reference photo of the ACTUAL product is attached. You MUST:
-1. Keep the EXACT same product — same color, same pattern, same material, same texture
-2. Re-create this product in the specified photography style
-3. The product in your image must be RECOGNIZABLY the same item as in the reference
-4. DO NOT change the product's color palette, pattern, or material type
-5. Only change the CONTEXT/SETTING around the product, never the product itself` : `Generate a HIGH QUALITY product photograph. The product must be the clear MAIN SUBJECT. Show realistic characteristics: shape, color, material, texture, pattern.`}
-
-OUTPUT RULES:
-- Format: 1:1 square, high resolution, professional photography quality
-- ZERO text, letters, words, numbers, watermarks, logos — pure visual only
-- Must look like a REAL photograph taken by a professional photographer
-- Natural, realistic lighting — not CGI or artificial looking`
+    const prompt = `${stylePrompt}
+Product: ${productName}${productCategory ? ` (${productCategory})` : ""}
+${productDescription ? productDescription.slice(0, 250) : ""}
+${refImagePart ? "CRITICAL: Reference photo attached. Keep EXACT same product colors, pattern, material, texture. Only change the setting/context." : "Show realistic product characteristics."}
+Rules: 1:1 square, NO text/watermarks/logos, professional photography, natural lighting.`
 
     const contentsParts: any[] = [{ text: prompt }]
-    if (refImageB64) {
-      contentsParts.push({
-        inlineData: { mimeType: refImageMime, data: refImageB64 },
-      })
+    if (refImagePart) {
+      contentsParts.push(refImagePart)
     }
 
     const response = await ai.models.generateContent({

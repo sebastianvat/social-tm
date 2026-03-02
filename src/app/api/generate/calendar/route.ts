@@ -100,17 +100,9 @@ export async function POST(request: NextRequest) {
     platforms,
   }
 
-  // #region agent log
-  fetch('http://localhost:7242/ingest/634abb5f-2f5a-4519-b060-6a93159490ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6ef643'},body:JSON.stringify({sessionId:'6ef643',location:'calendar/route.ts:PRE_GENERATE',message:'Starting synchronous generation',data:{calendarId:calendar.id,brandId,month,year,postCount},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   const db = createServiceClient()
   try {
     await generateCalendarContent(db, bgData)
-
-    // #region agent log
-    fetch('http://localhost:7242/ingest/634abb5f-2f5a-4519-b060-6a93159490ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6ef643'},body:JSON.stringify({sessionId:'6ef643',location:'calendar/route.ts:POST_GENERATE_SUCCESS',message:'Generation completed successfully',data:{calendarId:calendar.id},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     return NextResponse.json({
       calendarId: calendar.id,
@@ -119,10 +111,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Calendar generation failed:", error)
     await db.from("content_calendars").update({ status: "failed" }).eq("id", bgData.calendarId)
-
-    // #region agent log
-    fetch('http://localhost:7242/ingest/634abb5f-2f5a-4519-b060-6a93159490ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6ef643'},body:JSON.stringify({sessionId:'6ef643',location:'calendar/route.ts:GENERATE_FAILED',message:'Generation failed',data:{calendarId:calendar.id,error:error?.message||String(error)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     return NextResponse.json({
       calendarId: calendar.id,

@@ -6,7 +6,7 @@ import Link from "next/link"
 import {
   ArrowLeft, Camera, Wand2, Loader2, Package, Check,
   FileText, Download, ExternalLink, X, Sparkles, RefreshCw, Trash2, Undo2,
-  Copy, Pencil, Layers,
+  Copy, Pencil, Layers, Star,
 } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
 import { useActivity } from "@/components/activity-provider"
@@ -43,7 +43,7 @@ export default function ProductStudioPage() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Product | null>(null)
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
-  const [style, setStyle] = useState("editorial")
+  const [style, setStyle] = useState("room")
 
   const [generatingPhoto, setGeneratingPhoto] = useState(false)
   const [generatedPhotos, setGeneratedPhotos] = useState<{ url: string; style: string }[]>([])
@@ -69,13 +69,23 @@ export default function ProductStudioPage() {
     load()
   }, [brandId])
 
-  function selectProduct(p: Product) {
+  async function selectProduct(p: Product) {
     setSelected(p)
     setOriginalImageUrl(p.image_url)
     setGeneratedPhotos([])
     setGeneratedDescs(null)
     setSavedDesc(null)
     setError("")
+
+    try {
+      const res = await fetch(`/api/products/${p.id}/studio-photos`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.photos?.length > 0) {
+          setGeneratedPhotos(data.photos.map((ph: any) => ({ url: ph.url, style: ph.style })))
+        }
+      }
+    } catch {}
   }
 
   async function generatePhoto() {
@@ -104,7 +114,6 @@ export default function ProductStudioPage() {
         activity.updateActivity(actId, "error")
       } else {
         setGeneratedPhotos((prev) => [{ url: data.imageUrl, style: data.style || style }, ...prev])
-        setSelected((prev) => prev ? { ...prev, image_url: data.imageUrl } : prev)
         activity.updateActivity(actId, "done")
       }
     } catch (e: any) {
@@ -116,18 +125,16 @@ export default function ProductStudioPage() {
 
   async function discardPhoto(photoUrl: string) {
     setGeneratedPhotos((prev) => prev.filter((p) => p.url !== photoUrl))
-    if (selected?.image_url === photoUrl) {
-      const remaining = generatedPhotos.filter((p) => p.url !== photoUrl)
-      const newUrl = remaining.length > 0 ? remaining[0].url : originalImageUrl
-      setSelected((prev) => prev ? { ...prev, image_url: newUrl } : prev)
-      if (selected) {
-        await fetch(`/api/products/${selected.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image_url: newUrl }),
-        }).catch(() => {})
-      }
-    }
+  }
+
+  async function setAsMain(photoUrl: string) {
+    if (!selected) return
+    await fetch(`/api/products/${selected.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: photoUrl }),
+    }).catch(() => {})
+    setSelected((prev) => prev ? { ...prev, image_url: photoUrl } : prev)
   }
 
   const [generatingAll, setGeneratingAll] = useState(false)
@@ -189,7 +196,6 @@ export default function ProductStudioPage() {
   async function revertToOriginal() {
     if (!selected || !originalImageUrl) return
     setSelected((prev) => prev ? { ...prev, image_url: originalImageUrl } : prev)
-    setGeneratedPhotos([])
     await fetch(`/api/products/${selected.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -456,35 +462,56 @@ export default function ProductStudioPage() {
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      {generatedPhotos.map((photo, i) => (
-                        <div key={i} className="group relative">
-                          <img
-                            src={photo.url}
-                            alt=""
-                            className="h-52 w-full cursor-pointer rounded-xl object-cover ring-1 ring-zinc-200 transition-transform hover:scale-[1.01]"
-                            onClick={() => setLightbox(photo.url)}
-                          />
-                          <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
-                            {STYLES.find((s) => s.id === photo.style)?.label || photo.style}
-                          </span>
-                          <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); downloadPhoto(photo.url, photo.style) }}
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow hover:bg-white"
-                              title="Descarca"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); discardPhoto(photo.url) }}
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/80 text-white hover:bg-red-600"
-                              title="Sterge"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                      {generatedPhotos.map((photo, i) => {
+                        const isMain = selected?.image_url === photo.url
+                        return (
+                          <div key={i} className="group relative">
+                            <img
+                              src={photo.url}
+                              alt=""
+                              className={`h-52 w-full cursor-pointer rounded-xl object-cover transition-transform hover:scale-[1.01] ${
+                                isMain ? "ring-2 ring-emerald-500" : "ring-1 ring-zinc-200"
+                              }`}
+                              onClick={() => setLightbox(photo.url)}
+                            />
+                            <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
+                              <span className="rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+                                {STYLES.find((s) => s.id === photo.style)?.label || photo.style}
+                              </span>
+                              {isMain && (
+                                <span className="rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                                  Principala
+                                </span>
+                              )}
+                            </div>
+                            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              {!isMain && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setAsMain(photo.url) }}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/90 text-white shadow hover:bg-emerald-600"
+                                  title="Seteaza ca poza principala"
+                                >
+                                  <Star className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); downloadPhoto(photo.url, photo.style) }}
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow hover:bg-white"
+                                title="Descarca"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); discardPhoto(photo.url) }}
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/80 text-white hover:bg-red-600"
+                                title="Sterge"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}

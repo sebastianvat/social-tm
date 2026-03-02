@@ -103,10 +103,6 @@ OUTPUT RULES:
     const { data: publicUrl } = supabase.storage.from("post-images").getPublicUrl(fileName)
     const imageUrl = publicUrl.publicUrl
 
-    if (productId) {
-      await supabase.from("products").update({ image_url: imageUrl }).eq("id", productId)
-    }
-
     const newBalance = profile.tokens - TOKEN_COSTS.GENERATE_IMAGE
     await supabase.from("profiles").update({ tokens: newBalance }).eq("id", user.id)
     await supabase.from("token_transactions").insert({

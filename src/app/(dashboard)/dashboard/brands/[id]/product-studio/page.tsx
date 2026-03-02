@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import {
   ArrowLeft, Camera, Wand2, Loader2, Package, Check,
   FileText, Download, ExternalLink, X, Sparkles, RefreshCw, Trash2, Undo2,
-  Copy, Pencil, Layers, Star,
+  Copy, Layers, Star,
 } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
 import { useActivity } from "@/components/activity-provider"
@@ -47,8 +47,9 @@ export default function ProductStudioPage() {
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
   const [style, setStyle] = useState("room")
 
-  const [generatingPhoto, setGeneratingPhoto] = useState(false)
   const [generatedPhotos, setGeneratedPhotos] = useState<{ url: string; style: string }[]>([])
+  const [activeJobs, setActiveJobs] = useState<{ id: string; style: string }[]>([])
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [generatingDesc, setGeneratingDesc] = useState(false)
   const [generatedDescs, setGeneratedDescs] = useState<GeneratedDesc | null>(null)
@@ -58,6 +59,60 @@ export default function ProductStudioPage() {
   const [rescraping, setRescraping] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [error, setError] = useState("")
+
+  const isGenerating = activeJobs.length > 0
+
+  // Polling for active jobs
+  useEffect(() => {
+    if (activeJobs.length === 0) {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+      return
+    }
+
+    if (pollRef.current) clearInterval(pollRef.current)
+
+    pollRef.current = setInterval(async () => {
+      const currentJobs = [...activeJobs]
+      for (const job of currentJobs) {
+        try {
+          const res = await fetch(`/api/jobs/${job.id}`, { cache: "no-store" })
+          if (!res.ok) continue
+          const data = await res.json()
+
+          if (data.status === "done" && data.image_url) {
+            setGeneratedPhotos((prev) => [
+              { url: data.image_url, style: data.style || job.style },
+              ...prev,
+            ])
+            setActiveJobs((prev) => prev.filter((j) => j.id !== job.id))
+            activity.updateActivity(`job-${job.id}`, "done")
+          } else if (data.status === "error") {
+            setError(data.detail || "Eroare generare")
+            setActiveJobs((prev) => prev.filter((j) => j.id !== job.id))
+            activity.updateActivity(`job-${job.id}`, "error")
+          }
+        } catch {}
+      }
+    }, 4000)
+
+    const timeout = setTimeout(() => {
+      setActiveJobs((prev) => {
+        if (prev.length > 0) {
+          setError("Generarea a durat prea mult. Incearca din nou.")
+          prev.forEach((j) => activity.updateActivity(`job-${j.id}`, "error"))
+        }
+        return []
+      })
+    }, 300000)
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      clearTimeout(timeout)
+    }
+  }, [activeJobs.length])
 
   async function rescrapeOriginal() {
     if (!selected?.url) return
@@ -133,10 +188,7 @@ export default function ProductStudioPage() {
 
   async function generatePhoto() {
     if (!selected) return
-    setGeneratingPhoto(true)
     setError("")
-    const actId = `studio-photo-${selected.id}-${Date.now()}`
-    activity.addActivity({ id: actId, type: "image", label: `Studio: ${selected.name.slice(0, 30)}`, href: `/dashboard/brands/${brandId}/product-studio` })
 
     try {
       const res = await fetch("/api/generate/product-photo", {
@@ -154,16 +206,15 @@ export default function ProductStudioPage() {
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || "Eroare generare")
-        activity.updateActivity(actId, "error")
-      } else {
-        setGeneratedPhotos((prev) => [{ url: data.imageUrl, style: data.style || style }, ...prev])
-        activity.updateActivity(actId, "done")
+        return
       }
+
+      const jobId = data.jobId
+      activity.addActivity({ id: `job-${jobId}`, type: "image", label: `Studio: ${selected.name.slice(0, 30)}`, href: `/dashboard/brands/${brandId}/product-studio` })
+      setActiveJobs((prev) => [...prev, { id: jobId, style: data.style || style }])
     } catch (e: any) {
       setError(e?.message || "Eroare conexiune")
-      activity.updateActivity(actId, "error")
     }
-    setGeneratingPhoto(false)
   }
 
   async function discardPhoto(photoUrl: string) {
@@ -187,20 +238,12 @@ export default function ProductStudioPage() {
     setSelected((prev) => prev ? { ...prev, image_url: photoUrl } : prev)
   }
 
-  const [generatingAll, setGeneratingAll] = useState(false)
-  const [allProgress, setAllProgress] = useState({ done: 0, total: 0 })
-
   async function generateAllStyles() {
     if (!selected) return
     const stylesToGen = ["room", "closeup", "styled", "white"]
-    setGeneratingAll(true)
-    setAllProgress({ done: 0, total: stylesToGen.length })
     setError("")
 
     for (const s of stylesToGen) {
-      const actId = `studio-all-${selected.id}-${s}-${Date.now()}`
-      activity.addActivity({ id: actId, type: "image", label: `${selected.name.slice(0, 20)}: ${s}`, href: `/dashboard/brands/${brandId}/product-studio` })
-
       try {
         const res = await fetch("/api/generate/product-photo", {
           method: "POST",
@@ -215,18 +258,12 @@ export default function ProductStudioPage() {
           }),
         })
         const data = await res.json()
-        if (res.ok) {
-          setGeneratedPhotos((prev) => [...prev, { url: data.imageUrl, style: s }])
-          activity.updateActivity(actId, "done")
-        } else {
-          activity.updateActivity(actId, "error")
+        if (res.ok && data.jobId) {
+          activity.addActivity({ id: `job-${data.jobId}`, type: "image", label: `${selected.name.slice(0, 20)}: ${s}`, href: `/dashboard/brands/${brandId}/product-studio` })
+          setActiveJobs((prev) => [...prev, { id: data.jobId, style: s }])
         }
-      } catch {
-        activity.updateActivity(actId, "error")
-      }
-      setAllProgress((prev) => ({ ...prev, done: prev.done + 1 }))
+      } catch {}
     }
-    setGeneratingAll(false)
   }
 
   async function downloadPhoto(url: string, styleName: string) {
@@ -476,34 +513,38 @@ export default function ProductStudioPage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={generatePhoto}
-                    disabled={generatingPhoto || generatingAll}
+                    disabled={isGenerating}
                     className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-900 px-5 text-[13px] font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
                   >
-                    {generatingPhoto ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Wand2 className="h-4 w-4" />
-                    )}
-                    {generatingPhoto ? "Se genereaza..." : `Genereaza 1 fotografie (${TOKEN_COSTS.GENERATE_IMAGE} tok)`}
+                    <Wand2 className="h-4 w-4" />
+                    Genereaza 1 fotografie ({TOKEN_COSTS.GENERATE_IMAGE} tok)
                   </button>
                   <button
                     onClick={generateAllStyles}
-                    disabled={generatingPhoto || generatingAll}
+                    disabled={isGenerating}
                     className="inline-flex h-10 items-center gap-2 rounded-lg border-2 border-zinc-900 bg-white px-5 text-[13px] font-medium text-zinc-900 hover:bg-zinc-50 disabled:opacity-50"
                   >
-                    {generatingAll ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {allProgress.done}/{allProgress.total}
-                      </>
-                    ) : (
-                      <>
-                        <Layers className="h-4 w-4" />
-                        Genereaza toate 4 stilurile ({TOKEN_COSTS.GENERATE_IMAGE * 4} tok)
-                      </>
-                    )}
+                    <Layers className="h-4 w-4" />
+                    Genereaza toate 4 stilurile ({TOKEN_COSTS.GENERATE_IMAGE * 4} tok)
                   </button>
                 </div>
+
+                {activeJobs.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-amber-800">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Se genereaza {activeJobs.length} {activeJobs.length === 1 ? "fotografie" : "fotografii"}...
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {activeJobs.map((job) => (
+                        <span key={job.id} className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {STYLES.find((s) => s.id === job.style)?.label || job.style}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {generatedPhotos.length > 0 && (
                   <div className="mt-4">

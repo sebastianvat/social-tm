@@ -28,6 +28,7 @@ import {
   ExternalLink,
 } from "lucide-react"
 import { useBrand } from "@/components/brand-provider"
+import { useActivity } from "@/components/activity-provider"
 import { ProductCardMini } from "@/components/product-card"
 
 interface ProductInfo {
@@ -99,6 +100,7 @@ const typeLabels: Record<string, string> = {
 
 export default function PostsPage() {
   const { selectedBrandId, selectedBrand } = useBrand()
+  const activity = useActivity()
   const searchParams = useSearchParams()
   const expandParam = searchParams.get("expand")
   const [posts, setPosts] = useState<Post[]>([])
@@ -112,14 +114,12 @@ export default function PostsPage() {
   const [filterStatus, setFilterStatus] = useState("")
   const [filterPlatform, setFilterPlatform] = useState("")
 
-  // Selection
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // Bulk operations
+  const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set())
   const [bulkGenerating, setBulkGenerating] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [bulkStatusChange, setBulkStatusChange] = useState(false)
-  const [generatingImageFor, setGeneratingImageFor] = useState<string | null>(null)
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
 
   const fetchPosts = useCallback(async () => {
@@ -225,8 +225,11 @@ export default function PostsPage() {
   }
 
   async function generateImage(post: Post) {
-    if (!post.image_prompt) return
-    setGeneratingImageFor(post.id)
+    if (!post.image_prompt || generatingImages.has(post.id)) return
+    const actId = `img-${post.id}`
+    setGeneratingImages((prev) => new Set(prev).add(post.id))
+    activity.addActivity({ id: actId, type: "image", label: post.content.slice(0, 40) + "..." })
+
     try {
       const res = await fetch("/api/generate/image", {
         method: "POST",
@@ -238,9 +241,18 @@ export default function PostsPage() {
         setPosts((prev) =>
           prev.map((p) => (p.id === post.id ? { ...p, image_url: data.imageUrl } : p))
         )
+        activity.updateActivity(actId, "done")
+      } else {
+        activity.updateActivity(actId, "error")
       }
-    } catch {}
-    setGeneratingImageFor(null)
+    } catch {
+      activity.updateActivity(actId, "error")
+    }
+    setGeneratingImages((prev) => {
+      const next = new Set(prev)
+      next.delete(post.id)
+      return next
+    })
   }
 
   async function bulkGenerateImages() {
@@ -249,6 +261,8 @@ export default function PostsPage() {
     setBulkProgress({ done: 0, total: selectedWithoutImage.length })
 
     for (const post of selectedWithoutImage) {
+      const actId = `img-${post.id}`
+      activity.addActivity({ id: actId, type: "image", label: post.content.slice(0, 40) + "..." })
       try {
         const res = await fetch("/api/generate/image", {
           method: "POST",
@@ -260,8 +274,13 @@ export default function PostsPage() {
           setPosts((prev) =>
             prev.map((p) => (p.id === post.id ? { ...p, image_url: data.imageUrl } : p))
           )
+          activity.updateActivity(actId, "done")
+        } else {
+          activity.updateActivity(actId, "error")
         }
-      } catch {}
+      } catch {
+        activity.updateActivity(actId, "error")
+      }
       setBulkProgress((prev) => ({ ...prev, done: prev.done + 1 }))
     }
 
@@ -503,7 +522,7 @@ export default function PostsPage() {
               const isExpanded = expandedId === post.id
               const isEditing = editingId === post.id
               const isSelected = selected.has(post.id)
-              const isGeneratingThis = generatingImageFor === post.id
+              const isGeneratingThis = generatingImages.has(post.id)
               const canGenerateImage = post.image_prompt && !post.image_url
 
               return (

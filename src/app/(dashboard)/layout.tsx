@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/sidebar"
 import { BrandProvider } from "@/components/brand-provider"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ActivityProvider } from "@/components/activity-provider"
+import { ActivityPanel } from "@/components/activity-panel"
 import { ThemeToggle } from "@/components/header-controls"
 import { Coins } from "lucide-react"
 import { formatTokens } from "@/lib/utils"
@@ -32,23 +34,26 @@ export default async function DashboardLayout({
   return (
     <ThemeProvider>
       <BrandProvider brands={brands || []} initialBrandId={validBrandId}>
-        <div className="flex h-screen bg-white">
-          <Sidebar tokens={tokens} />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <header className="flex h-12 flex-shrink-0 items-center justify-end gap-3 border-b border-zinc-100 px-6">
-              <div className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-medium text-zinc-700">
-                <Coins className="h-3 w-3 text-zinc-400" />
-                {formatTokens(tokens)} tokeni
-              </div>
-              <ThemeToggle />
-            </header>
-            <main className="flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-4xl px-8 py-10">
-                {children}
-              </div>
-            </main>
+        <ActivityProvider>
+          <div className="flex h-screen bg-white">
+            <Sidebar tokens={tokens} />
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <header className="flex h-12 flex-shrink-0 items-center justify-end gap-3 border-b border-zinc-100 px-6">
+                <div className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-medium text-zinc-700">
+                  <Coins className="h-3 w-3 text-zinc-400" />
+                  {formatTokens(tokens)} tokeni
+                </div>
+                <ThemeToggle />
+              </header>
+              <main className="flex-1 overflow-y-auto">
+                <div className="mx-auto max-w-4xl px-8 py-10">
+                  {children}
+                </div>
+              </main>
+            </div>
+            <ActivityPanel />
           </div>
-        </div>
+        </ActivityProvider>
       </BrandProvider>
     </ThemeProvider>
   )

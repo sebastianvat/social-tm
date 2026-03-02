@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { TOKEN_COSTS } from "@/lib/tokens"
 
-const SCRAPER_URL = process.env.SCRAPER_API_URL || "http://159.69.127.36:8899"
+const SCRAPER_URL = process.env.SCRAPER_API_URL || "https://molty.transilvaniabusinesssuite.ro/scraper"
 const SCRAPER_KEY = process.env.SCRAPER_API_KEY || "tbs-scraper-2026-secret"
 
 type ScrapedProduct = {
@@ -173,7 +173,8 @@ export async function POST(request: NextRequest) {
       productsFound: limitedProducts.length,
     })
   } catch (error) {
-    console.error("Scan error:", error)
-    return NextResponse.json({ error: "Eroare la scanarea website-ului" }, { status: 500 })
+    const msg = error instanceof Error ? error.message : "Eroare necunoscuta"
+    console.error("Scan error:", msg)
+    return NextResponse.json({ error: `Eroare scanare: ${msg}` }, { status: 500 })
   }
 }

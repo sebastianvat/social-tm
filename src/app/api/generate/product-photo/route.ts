@@ -32,23 +32,34 @@ export async function POST(request: NextRequest) {
 
   const baseUrl = MOLTY_URL.replace(/\/scraper\/?$/, "")
 
-  // Fire-and-forget: Molty writes result to Supabase Storage when done
-  fetch(`${baseUrl}/scraper/generate-image`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-API-Key": MOLTY_KEY },
-    body: JSON.stringify({
-      product_name: productName,
-      product_description: productDescription || "",
-      product_category: productCategory || "",
-      product_image_url: productImageUrl || "",
-      style,
-      google_ai_api_key: process.env.GOOGLE_AI_API_KEY!,
-      supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      supabase_service_key: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      storage_path: `${user.id}/product-studio/${productId || crypto.randomUUID()}`,
-      job_id: jobId,
-    }),
-  }).catch(() => {})
+  // Ensure request is delivered to Molty, then abort to free Worker early.
+  // Molty continues processing and writes result to Supabase Storage.
+  const controller = new AbortController()
+  const deliveryTimeout = setTimeout(() => controller.abort(), 8000)
+
+  try {
+    await fetch(`${baseUrl}/scraper/generate-image`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": MOLTY_KEY },
+      signal: controller.signal,
+      body: JSON.stringify({
+        product_name: productName,
+        product_description: productDescription || "",
+        product_category: productCategory || "",
+        product_image_url: productImageUrl || "",
+        style,
+        google_ai_api_key: process.env.GOOGLE_AI_API_KEY!,
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        supabase_service_key: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        storage_path: `${user.id}/product-studio/${productId || crypto.randomUUID()}`,
+        job_id: jobId,
+      }),
+    })
+  } catch {
+    // AbortError expected after 8s — request body already delivered to Molty
+  } finally {
+    clearTimeout(deliveryTimeout)
+  }
 
   return NextResponse.json({ jobId, style })
 }

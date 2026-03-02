@@ -5,9 +5,10 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import {
   ArrowLeft, Camera, Wand2, Loader2, Package, Check,
-  FileText, Download, ExternalLink, X, Sparkles, RefreshCw,
+  FileText, Download, ExternalLink, X, Sparkles, RefreshCw, Trash2, Undo2,
 } from "lucide-react"
 import { TOKEN_COSTS } from "@/lib/tokens"
+import { useActivity } from "@/components/activity-provider"
 
 type Product = {
   id: string
@@ -36,10 +37,12 @@ const STYLES = [
 export default function ProductStudioPage() {
   const params = useParams()
   const brandId = params.id as string
+  const activity = useActivity()
 
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Product | null>(null)
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
   const [style, setStyle] = useState("editorial")
 
   const [generatingPhoto, setGeneratingPhoto] = useState(false)
@@ -67,6 +70,7 @@ export default function ProductStudioPage() {
 
   function selectProduct(p: Product) {
     setSelected(p)
+    setOriginalImageUrl(p.image_url)
     setGeneratedPhotos([])
     setGeneratedDescs(null)
     setSavedDesc(null)
@@ -77,6 +81,8 @@ export default function ProductStudioPage() {
     if (!selected) return
     setGeneratingPhoto(true)
     setError("")
+    const actId = `studio-photo-${selected.id}-${Date.now()}`
+    activity.addActivity({ id: actId, type: "image", label: `Studio: ${selected.name.slice(0, 30)}` })
 
     try {
       const res = await fetch("/api/generate/product-photo", {
@@ -93,14 +99,44 @@ export default function ProductStudioPage() {
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || "Eroare generare")
+        activity.updateActivity(actId, "error")
       } else {
         setGeneratedPhotos((prev) => [{ url: data.imageUrl, style: data.style || style }, ...prev])
         setSelected((prev) => prev ? { ...prev, image_url: data.imageUrl } : prev)
+        activity.updateActivity(actId, "done")
       }
     } catch (e: any) {
       setError(e?.message || "Eroare conexiune")
+      activity.updateActivity(actId, "error")
     }
     setGeneratingPhoto(false)
+  }
+
+  async function discardPhoto(photoUrl: string) {
+    setGeneratedPhotos((prev) => prev.filter((p) => p.url !== photoUrl))
+    if (selected?.image_url === photoUrl) {
+      const remaining = generatedPhotos.filter((p) => p.url !== photoUrl)
+      const newUrl = remaining.length > 0 ? remaining[0].url : originalImageUrl
+      setSelected((prev) => prev ? { ...prev, image_url: newUrl } : prev)
+      if (selected) {
+        await fetch(`/api/products/${selected.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_url: newUrl }),
+        }).catch(() => {})
+      }
+    }
+  }
+
+  async function revertToOriginal() {
+    if (!selected || !originalImageUrl) return
+    setSelected((prev) => prev ? { ...prev, image_url: originalImageUrl } : prev)
+    setGeneratedPhotos([])
+    await fetch(`/api/products/${selected.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: originalImageUrl }),
+    }).catch(() => {})
   }
 
   async function generateDescription() {
@@ -319,9 +355,20 @@ export default function ProductStudioPage() {
 
                 {generatedPhotos.length > 0 && (
                   <div className="mt-4">
-                    <p className="mb-2 text-[12px] font-medium text-zinc-500">
-                      Fotografii generate ({generatedPhotos.length}):
-                    </p>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-[12px] font-medium text-zinc-500">
+                        Fotografii generate ({generatedPhotos.length}):
+                      </p>
+                      {originalImageUrl && generatedPhotos.length > 0 && (
+                        <button
+                          onClick={revertToOriginal}
+                          className="inline-flex items-center gap-1 rounded-md border border-zinc-200 px-2.5 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+                        >
+                          <Undo2 className="h-3 w-3" />
+                          Revino la originala
+                        </button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-3 gap-3">
                       {generatedPhotos.map((photo, i) => (
                         <div key={i} className="group relative">
@@ -334,6 +381,13 @@ export default function ProductStudioPage() {
                           <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
                             {STYLES.find((s) => s.id === photo.style)?.label || photo.style}
                           </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); discardPhoto(photo.url) }}
+                            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-500/80 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-600"
+                            title="Sterge aceasta varianta"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!)
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -12,6 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 })
   }
 
+  const stripe = getStripe()
   let event: Stripe.Event
 
   try {

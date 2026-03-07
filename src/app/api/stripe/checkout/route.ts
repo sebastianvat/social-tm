@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { getTokenPackById } from "@/lib/tokens"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL
+    const stripe = getStripe()
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

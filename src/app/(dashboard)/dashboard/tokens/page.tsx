@@ -1,12 +1,22 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { Coins, ArrowUp, ArrowDown, Gift, Zap } from "lucide-react"
+import { Coins, ArrowUp, ArrowDown, Gift, Zap, CheckCircle, XCircle } from "lucide-react"
 import { TOKEN_PACKS, TOKEN_COSTS } from "@/lib/tokens"
+import { BuyButton } from "./buy-button"
 
-export default async function TokensPage() {
+export default async function TokensPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string; cancelled?: string; tokens?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
+
+  const params = await searchParams
+  const showSuccess = params.success === "true"
+  const showCancelled = params.cancelled === "true"
+  const purchasedTokens = params.tokens
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -23,6 +33,25 @@ export default async function TokensPage() {
 
   return (
     <div>
+      {showSuccess && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          <div>
+            <p className="text-sm font-medium text-green-900">Plata reusita!</p>
+            <p className="text-xs text-green-700">
+              {purchasedTokens ? `${purchasedTokens} tokeni au fost adaugati in contul tau.` : "Tokenii au fost adaugati in contul tau."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {showCancelled && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+          <XCircle className="h-5 w-5 text-zinc-400" />
+          <p className="text-sm text-zinc-600">Plata a fost anulata. Nu ai fost taxat.</p>
+        </div>
+      )}
+
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">Tokeni</h1>
@@ -60,9 +89,7 @@ export default async function TokensPage() {
                 <Coins className="h-3 w-3" />
                 {pack.tokens} tokeni
               </div>
-              <button className="mt-4 flex h-9 w-full items-center justify-center rounded-lg bg-zinc-900 text-[13px] font-medium text-white hover:bg-zinc-800">
-                Cumpara
-              </button>
+              <BuyButton packId={pack.id} />
             </div>
           ))}
         </div>
